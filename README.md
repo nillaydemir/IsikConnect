@@ -1,17 +1,20 @@
-# isikconnect
+# Işık Connect
 
-A new Flutter project.
+Işık Connect is a mobile application designed to connect Işık University students with alumni mentors. The platform aims to support students in their career journey by enabling mentorship, communication, and access to opportunities.
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+- Student and mentor registration system  
+- Role-based access (Student / Mentor / Admin)  
+- Mentor-mentee matching system  
+- Messaging between users  
+- Event and meeting scheduling  
+- Announcements for internships and opportunities  
 
-A few resources to get you started if this is your first Flutter project:
+## Tech Stack
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Frontend: Flutter  
+- Backend: Node.js (REST API)  
+- Database: PostgreSQL  
+- Version Control: Git & GitHub  
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
