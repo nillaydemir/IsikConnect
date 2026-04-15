@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/user_models.dart';
+import '../../../core/services/matching_service.dart';
 
 class HomePageStudent extends StatefulWidget {
   const HomePageStudent({super.key});
@@ -13,7 +15,7 @@ class _HomePageStudentState extends State<HomePageStudent> {
   // The 5 tab pages using IndexedStack to preserve state
   final List<Widget> _pages = const [
     _HomeTab(),
-    _PlaceholderTab(title: 'Your mentor will appear here'),
+    _MyMentorTab(),
     _PlaceholderTab(title: 'Available workshops'),
     _PlaceholderTab(title: 'Community discussions'),
     _PlaceholderTab(title: 'User profile'),
@@ -27,17 +29,19 @@ class _HomePageStudentState extends State<HomePageStudent> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color.fromARGB(255, 38, 55, 140); // User requested theme color
+    const primaryColor = Color.fromARGB(
+      255,
+      38,
+      55,
+      140,
+    ); // User requested theme color
 
     return Scaffold(
       backgroundColor: Colors.grey[50], // Light clean background
       appBar: AppBar(
         title: const Text(
           'Işık Connect',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: primaryColor,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor),
         ),
         backgroundColor: Colors.white,
         elevation: 1, // Soft shadow
@@ -48,12 +52,16 @@ class _HomePageStudentState extends State<HomePageStudent> {
               Navigator.pushNamed(context, '/announcements');
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            tooltip: 'Logout',
+            onPressed: () {
+              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+            },
+          ),
         ],
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -74,8 +82,14 @@ class _HomePageStudentState extends State<HomePageStudent> {
           elevation: 0,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.people), label: 'My Mentor'),
-            BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Workshops'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people),
+              label: 'My Mentor',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.event),
+              label: 'Workshops',
+            ),
             BottomNavigationBarItem(icon: Icon(Icons.forum), label: 'Forum'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
@@ -107,7 +121,6 @@ class _HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _buildCardSection('Upcoming Workshops', Icons.event_available),
-         
         ],
       ),
     );
@@ -130,12 +143,18 @@ class _HomeTab extends StatelessWidget {
                     color: const Color.fromARGB(255, 38, 55, 140),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: const Color.fromARGB(255, 38, 55, 140)),
+                  child: Icon(
+                    icon,
+                    color: const Color.fromARGB(255, 38, 55, 140),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -174,10 +193,296 @@ class _PlaceholderTab extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Text(
           title,
-          style: const TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+            fontSize: 18,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
           textAlign: TextAlign.center,
         ),
       ),
+    );
+  }
+}
+
+class _MyMentorTab extends StatefulWidget {
+  const _MyMentorTab();
+
+  @override
+  State<_MyMentorTab> createState() => _MyMentorTabState();
+}
+
+class _MyMentorTabState extends State<_MyMentorTab> {
+  // Dummy Logged In Student
+  late Student _currentStudent;
+  Mentor? _matchedMentor;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Simulate logged in student who selected specific department and interests
+    _currentStudent = Student(
+      id: 's1',
+      name: 'Nilay Demir',
+      email: 'nilay@isik.edu.tr',
+      department: 'Computer Engineering',
+      classLevel: '3rd Year',
+      requestedTopics: ['Mobile Development', 'AI / Machine Learning'],
+    );
+  }
+
+  void _runMatching() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Simulate network delay
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Dummy mentors in the system
+    List<Mentor> mentors = [
+      Mentor(
+        id: 'm1',
+        name: 'Ahmet Yılmaz',
+        email: 'ahmet@company.com',
+        department: 'Software Engineering',
+        graduationYear: '2020',
+        skills: ['Web Development', 'Backend Development'],
+        company: 'Tech Corp',
+        jobTitle: 'Backend Developer',
+        maxCapacity: 3,
+      ),
+      Mentor(
+        id: 'm2',
+        name: 'Elif Şahin',
+        email: 'elif@startup.io',
+        department: 'Computer Engineering',
+        graduationYear: '2019',
+        skills: ['UI/UX'],
+        company: 'Flutter Innovators',
+        jobTitle: 'Mobile Lead',
+        maxCapacity: 2,
+      ),
+      Mentor(
+        id: 'm3',
+        name: 'Can Aydın',
+        email: 'can@data.com',
+        department: 'Computer Engineering',
+        graduationYear: '2021',
+        skills: ['Mobile Development', 'AI / Machine Learning'],
+        company: 'DataTech',
+        jobTitle: 'Data Engineer',
+        maxCapacity: 1,
+      ),
+    ];
+
+    final matchingService = MatchingService();
+    final results = matchingService.assignMentors([_currentStudent], mentors);
+
+    setState(() {
+      _matchedMentor = results[_currentStudent];
+      _isLoading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Finding the best mentor for you...'),
+          ],
+        ),
+      );
+    }
+
+    if (_matchedMentor == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.person_search, size: 80, color: Colors.grey.shade400),
+              const SizedBox(height: 16),
+              const Text(
+                'You don\'t have a mentor yet.',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Click the button below to run the AI Matching Algorithm based on your department and interests: \n${_currentStudent.requestedTopics.join(', ')}',
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _runMatching,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Find Mentor'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  backgroundColor: const Color.fromARGB(255, 38, 55, 140),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Your Assigned Mentor',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: const Color.fromARGB(
+                          255,
+                          38,
+                          55,
+                          140,
+                        ).withOpacity(0.1),
+                        child: Text(
+                          _matchedMentor!.name.substring(0, 1),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Color.fromARGB(255, 38, 55, 140),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _matchedMentor!.name,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${_matchedMentor!.jobTitle ?? 'Mentor'} at ${_matchedMentor!.company ?? ''}',
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  _buildInfoRow(
+                    Icons.school,
+                    'Department',
+                    _matchedMentor!.department,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoRow(Icons.email, 'Email', _matchedMentor!.email),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Mentor Skills',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _matchedMentor!.skills.map((skill) {
+                      bool isMatch = _currentStudent.requestedTopics.contains(
+                        skill,
+                      );
+                      return Chip(
+                        label: Text(skill),
+                        backgroundColor: isMatch
+                            ? Colors.green.shade50
+                            : Colors.grey.shade100,
+                        labelStyle: TextStyle(
+                          color: isMatch
+                              ? Colors.green.shade700
+                              : Colors.black87,
+                          fontWeight: isMatch
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                        side: BorderSide(
+                          color: isMatch
+                              ? Colors.green.shade200
+                              : Colors.grey.shade300,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.message),
+                      label: const Text('Message Mentor'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color.fromARGB(255, 38, 55, 140),
+                        side: const BorderSide(
+                          color: Color.fromARGB(255, 38, 55, 140),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade600),
+        const SizedBox(width: 8),
+        Text('$label: ', style: TextStyle(color: Colors.grey.shade600)),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ),
+      ],
     );
   }
 }
