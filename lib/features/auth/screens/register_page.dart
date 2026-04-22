@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -9,6 +11,7 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   int _currentStep = 0;
+  bool _isLoading = false;
 
   // -- Step 1: Common Info --
   final TextEditingController _nameController = TextEditingController();
@@ -31,68 +34,20 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // -- Step 3: Role Details
   final Map<String, List<String>> _departmentInterests = {
-    'Computer Engineering': [
-      'Web Development',
-      'Mobile Development',
-      'AI / Machine Learning',
-      'Data Science',
-      'Backend Development',
-    ],
-    'Software Engineering': [
-      'Web Development',
-      'Mobile Development',
-      'AI / Machine Learning',
-      'Data Science',
-      'Backend Development',
-    ],
-    'Industrial Engineering': [
-      'Supply Chain',
-      'Operations Research',
-      'Data Analytics',
-      'Quality Control',
-    ],
-    'Electrical and Electronics Engineering': [
-      'Embedded Systems',
-      'IoT',
-      'Circuit Design',
-      'Robotics',
-    ],
-    'Mechanical Engineering': [
-      'CAD Design',
-      'Thermodynamics',
-      'Robotics',
-      'Mechatronics',
-    ],
-    'Civil Engineering': [
-      'Structural Engineering',
-      'Construction Management',
-      'Geotechnical',
-    ],
-    'Psychology': [
-      'Clinical Psychology',
-      'Cognitive Psychology',
-      'Behavioral Science',
-    ],
+    'Computer Engineering': ['Web Development', 'Mobile Development', 'AI / Machine Learning', 'Data Science', 'Backend Development'],
+    'Software Engineering': ['Web Development', 'Mobile Development', 'AI / Machine Learning', 'Data Science', 'Backend Development'],
+    'Industrial Engineering': ['Supply Chain', 'Operations Research', 'Data Analytics', 'Quality Control'],
+    'Electrical and Electronics Engineering': ['Embedded Systems', 'IoT', 'Circuit Design', 'Robotics'],
+    'Mechanical Engineering': ['CAD Design', 'Thermodynamics', 'Robotics', 'Mechatronics'],
+    'Civil Engineering': ['Structural Engineering', 'Construction Management', 'Geotechnical'],
+    'Psychology': ['Clinical Psychology', 'Cognitive Psychology', 'Behavioral Science'],
     'Mathematics': ['Applied Mathematics', 'Statistics', 'Cryptography'],
     'Physics': ['Quantum Physics', 'Astrophysics', 'Materials Science'],
-    'Business Administration': [
-      'Marketing',
-      'Finance',
-      'Human Resources',
-      'Management',
-    ],
-    'International Trade and Finance': [
-      'Global Markets',
-      'Trade Policy',
-      'Investment Banking',
-    ],
+    'Business Administration': ['Marketing', 'Finance', 'Human Resources', 'Management'],
+    'International Trade and Finance': ['Global Markets', 'Trade Policy', 'Investment Banking'],
     'Economics': ['Macroeconomics', 'Microeconomics', 'Econometrics'],
     'Architecture': ['Urban Design', 'Sustainable Architecture', 'Landscape'],
-    'Interior Architecture and Environmental Design': [
-      'Space Planning',
-      'Furniture Design',
-      'Lighting',
-    ],
+    'Interior Architecture and Environmental Design': ['Space Planning', 'Furniture Design', 'Lighting'],
     'Nursing': ['Patient Care', 'Pediatrics', 'Public Health'],
   };
 
@@ -164,7 +119,53 @@ class _RegisterPageState extends State<RegisterPage> {
         _currentStep++;
       });
     } else {
-      // Final step -> Submit
+      _submitRegistration();
+    }
+  }
+
+  Future<void> _submitRegistration() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      final role = _selectedRole?.toLowerCase() ?? 'student';
+
+      final userId = const Uuid().v4();
+
+      // 2. Prepare payload for public.users table
+      final Map<String, dynamic> payload = {
+        'id': userId,
+        'email': email,
+        'password': password,
+        'role': role,
+        'is_approved': false,
+        'name': _nameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'available_days': _selectedDays,
+      };
+
+      if (role == 'student') {
+        payload['department'] = _selectedDepartment;
+        payload['class_level'] = _selectedClassLevel;
+        payload['interests'] = _selectedInterests;
+      } else if (role == 'mentor') {
+        payload['department'] = _selectedDepartment;
+        payload['graduation_year'] = _selectedGradYear;
+        payload['company'] = _companyController.text.trim();
+        payload['job_title'] = _jobTitleController.text.trim();
+        if (_selectedMaxStudents != null) {
+          payload['max_students'] = int.tryParse(_selectedMaxStudents!);
+        }
+        payload['interests'] = _selectedInterests; // Shared mentorship areas
+      }
+
+      // 3. Insert into public.users table directly bypassing Auth
+      await Supabase.instance.client.from('users').insert(payload);
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Registration submitted successfully!'),
@@ -172,7 +173,15 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
       );
       Future.delayed(const Duration(seconds: 1), () {
-        Navigator.pop(context); // Optional: go to homepage
+        Navigator.pop(context); // Go back to login or homepage
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
@@ -218,7 +227,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: details.onStepContinue,
+                      onPressed: _isLoading ? null : details.onStepContinue,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: const Color.fromARGB(255, 38, 55, 140),
@@ -227,10 +236,16 @@ class _RegisterPageState extends State<RegisterPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: Text(
-                        _currentStep == 3 ? 'Submit' : 'Continue',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      child: _isLoading && _currentStep == 3
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Text(
+                              _currentStep == 3 ? 'Submit' : 'Continue',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 16),
