@@ -1,29 +1,22 @@
 import 'package:flutter/material.dart';
 
-// Import feature screens here as they are developed
-// import '../features/auth/screens/login_screen.dart';
+import '../features/auth/screens/login_page.dart';
+import '../features/auth/screens/register_page.dart';
+import '../features/student/screens/home_page_student.dart';
+import '../features/student/screens/announcements_page.dart';
 
 class AppRoutes {
   static const String initialRoute = '/';
+  static const String registerRoute = '/register';
+  static const String studentHomeRoute = '/studentHome';
+  static const String announcementsRoute = '/announcements';
 
   static Map<String, WidgetBuilder> get routes {
     return {
-      initialRoute: (context) => const PlaceholderScreen(title: 'Home / Splash'),
-      // '/login': (context) => const LoginScreen(),
+      initialRoute: (context) => const LoginPage(),
+      registerRoute: (context) => const RegisterPage(),
+      studentHomeRoute: (context) => const HomePageStudent(),
+      announcementsRoute: (context) => const AnnouncementsPage(),
     };
-  }
-}
-
-// Temporary placeholder for initial boilerplate
-class PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const PlaceholderScreen({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(child: Text('Welcome to $title')),
-    );
   }
 }
