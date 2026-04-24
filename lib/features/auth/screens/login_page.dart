@@ -62,8 +62,69 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 30),
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/studentHome');
+                  onPressed: () async {
+                    final email = _emailController.text.trim();
+                    final password = _passwordController.text.trim();
+                    
+                    if (email.isEmpty || password.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter an email and password.'), backgroundColor: Colors.red),
+                      );
+                      return;
+                    }
+
+                    // --- MOCK ADMIN CHECK ---
+                    if (email == 'admin@isikconnect.edu.tr' && password == 'admin123') {
+                      CurrentSession().user = AppUser.fromJson({
+                        'id': 'mock-admin-id',
+                        'email': 'admin@isikconnect.edu.tr',
+                        'role': 'admin',
+                        'created_at': DateTime.now().toIso8601String(),
+                        'name': 'System Admin'
+                      });
+                      Navigator.pushReplacementNamed(context, '/admin');
+                      return;
+                    }
+                    // ------------------------
+
+                    try {
+                      // Custom Login: Verify credentials entirely from public.users table
+                      final userDoc = await Supabase.instance.client
+                          .from('users')
+                          .select()
+                          .eq('email', email)
+                          .maybeSingle();
+
+                      if (userDoc == null) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('User not found. Please register first.'), backgroundColor: Colors.red),
+                        );
+                      } else if (userDoc['password'] != password) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Incorrect password.'), backgroundColor: Colors.red),
+                        );
+                      } else {
+                        if (!context.mounted) return;
+                        // Credentials are correct, navigate to app
+                        CurrentSession().user = AppUser.fromJson(userDoc);
+                        
+                        // Proceed to corresponding home based on role
+                        if (userDoc['role'] == 'mentor') {
+                           Navigator.pushReplacementNamed(context, '/mentorHome');
+                        } else if (userDoc['role'] == 'admin') {
+                           Navigator.pushReplacementNamed(context, '/admin');
+                        } else {
+                           Navigator.pushReplacementNamed(context, '/studentHome');
+                        }
+                      }
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                      );
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
