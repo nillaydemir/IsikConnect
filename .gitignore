@@ -43,8 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-.env
-
+# Node.js
 node_modules/
 server/node_modules/
+
+# Environment Variables
+.env
+*.env
+server/.env
+
+# Android
 android/build/

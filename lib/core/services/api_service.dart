@@ -5,7 +5,7 @@ import 'dart:io';
 class ApiService {
   final String baseUrl;
 
-  ApiService({String? baseUrl}) : baseUrl = baseUrl ?? (Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000');
+  ApiService({String? baseUrl}) : baseUrl = baseUrl ?? (Platform.isAndroid ? 'http://10.0.2.2:3000/api' : 'http://localhost:3000/api');
 
   Future<Map<String, dynamic>> registerMentor(Map<String, dynamic> data, dynamic file) async {
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/mentor/register'));

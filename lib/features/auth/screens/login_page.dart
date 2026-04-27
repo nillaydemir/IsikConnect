@@ -70,12 +70,27 @@ class _LoginPageState extends State<LoginPage> {
                   onPressed: () async {
                     final email = _emailController.text.trim();
                     final password = _passwordController.text.trim();
+                    
                     if (email.isEmpty || password.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please enter an email and password.'), backgroundColor: Colors.red),
                       );
                       return;
                     }
+
+                    // --- MOCK ADMIN CHECK ---
+                    if (email == 'admin@isikconnect.edu.tr' && password == 'admin123') {
+                      CurrentSession().user = AppUser.fromJson({
+                        'id': 'mock-admin-id',
+                        'email': 'admin@isikconnect.edu.tr',
+                        'role': 'admin',
+                        'created_at': DateTime.now().toIso8601String(),
+                        'name': 'System Admin'
+                      });
+                      Navigator.pushReplacementNamed(context, '/admin');
+                      return;
+                    }
+                    // ------------------------
 
                     try {
                       setState(() => _isLoading = true);
@@ -126,7 +141,13 @@ class _LoginPageState extends State<LoginPage> {
                         } else {
                           if (!context.mounted) return;
                           CurrentSession().user = AppUser.fromJson(userDoc);
-                          Navigator.pushReplacementNamed(context, '/studentHome');
+                          
+                          // Proceed to corresponding home based on role
+                          if (userDoc['role'] == 'admin') {
+                             Navigator.pushReplacementNamed(context, '/admin');
+                          } else {
+                             Navigator.pushReplacementNamed(context, '/studentHome');
+                          }
                         }
                       }
                     } catch (e) {
