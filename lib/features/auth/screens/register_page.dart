@@ -1,4 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../../core/services/api_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -9,6 +15,7 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   int _currentStep = 0;
+  bool _isLoading = false;
 
   // -- Step 1: Common Info --
   final TextEditingController _nameController = TextEditingController();
@@ -31,68 +38,20 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // -- Step 3: Role Details
   final Map<String, List<String>> _departmentInterests = {
-    'Computer Engineering': [
-      'Web Development',
-      'Mobile Development',
-      'AI / Machine Learning',
-      'Data Science',
-      'Backend Development',
-    ],
-    'Software Engineering': [
-      'Web Development',
-      'Mobile Development',
-      'AI / Machine Learning',
-      'Data Science',
-      'Backend Development',
-    ],
-    'Industrial Engineering': [
-      'Supply Chain',
-      'Operations Research',
-      'Data Analytics',
-      'Quality Control',
-    ],
-    'Electrical and Electronics Engineering': [
-      'Embedded Systems',
-      'IoT',
-      'Circuit Design',
-      'Robotics',
-    ],
-    'Mechanical Engineering': [
-      'CAD Design',
-      'Thermodynamics',
-      'Robotics',
-      'Mechatronics',
-    ],
-    'Civil Engineering': [
-      'Structural Engineering',
-      'Construction Management',
-      'Geotechnical',
-    ],
-    'Psychology': [
-      'Clinical Psychology',
-      'Cognitive Psychology',
-      'Behavioral Science',
-    ],
+    'Computer Engineering': ['Web Development', 'Mobile Development', 'AI / Machine Learning', 'Data Science', 'Backend Development'],
+    'Software Engineering': ['Web Development', 'Mobile Development', 'AI / Machine Learning', 'Data Science', 'Backend Development'],
+    'Industrial Engineering': ['Supply Chain', 'Operations Research', 'Data Analytics', 'Quality Control'],
+    'Electrical and Electronics Engineering': ['Embedded Systems', 'IoT', 'Circuit Design', 'Robotics'],
+    'Mechanical Engineering': ['CAD Design', 'Thermodynamics', 'Robotics', 'Mechatronics'],
+    'Civil Engineering': ['Structural Engineering', 'Construction Management', 'Geotechnical'],
+    'Psychology': ['Clinical Psychology', 'Cognitive Psychology', 'Behavioral Science'],
     'Mathematics': ['Applied Mathematics', 'Statistics', 'Cryptography'],
     'Physics': ['Quantum Physics', 'Astrophysics', 'Materials Science'],
-    'Business Administration': [
-      'Marketing',
-      'Finance',
-      'Human Resources',
-      'Management',
-    ],
-    'International Trade and Finance': [
-      'Global Markets',
-      'Trade Policy',
-      'Investment Banking',
-    ],
+    'Business Administration': ['Marketing', 'Finance', 'Human Resources', 'Management'],
+    'International Trade and Finance': ['Global Markets', 'Trade Policy', 'Investment Banking'],
     'Economics': ['Macroeconomics', 'Microeconomics', 'Econometrics'],
     'Architecture': ['Urban Design', 'Sustainable Architecture', 'Landscape'],
-    'Interior Architecture and Environmental Design': [
-      'Space Planning',
-      'Furniture Design',
-      'Lighting',
-    ],
+    'Interior Architecture and Environmental Design': ['Space Planning', 'Furniture Design', 'Lighting'],
     'Nursing': ['Patient Care', 'Pediatrics', 'Public Health'],
   };
 
@@ -118,6 +77,12 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _jobTitleController = TextEditingController();
   final List<String> _maxStudentsList = ['1', '2', '3', '5', '10'];
   String? _selectedMaxStudents;
+
+  // File picking
+  String? _selectedFileName;
+  String? _selectedFilePath;
+  dynamic _selectedPlatformFile; // Store PlatformFile for cross-platform support
+
 
   @override
   void dispose() {
@@ -164,15 +129,102 @@ class _RegisterPageState extends State<RegisterPage> {
         _currentStep++;
       });
     } else {
-      // Final step -> Submit
+      _submitRegistration();
+    }
+  }
+
+  Future<void> _submitRegistration() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      print('--- Registering Button Pressed ---');
+      print('File Name: $_selectedFileName');
+      print('File Path: $_selectedFilePath');
+      print('PlatformFile present: ${_selectedPlatformFile != null}');
+      
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      final role = _selectedRole?.toLowerCase() ?? 'student';
+
+      if (role == 'mentor') {
+        if (_selectedFilePath == null) {
+          throw 'Please upload your graduation document.';
+        }
+
+        final apiService = ApiService();
+        
+        // 1. Prepare payload
+        final Map<String, dynamic> payload = {
+          'full_name': _nameController.text.trim(),
+          'email': email,
+          'password': password,
+          'phone': _phoneController.text.trim(),
+          'available_days': _selectedDays,
+          'department': _selectedDepartment,
+          'graduation_year': _selectedGradYear,
+          'company': _companyController.text.trim(),
+          'job_title': _jobTitleController.text.trim(),
+          'max_students': int.tryParse(_selectedMaxStudents ?? '1'),
+          'interests': _selectedInterests,
+        };
+        
+        // 2. Call backend API with both data and file in a single multipart request
+        final result = await apiService.registerMentor(payload, _selectedPlatformFile);
+        
+        if (result['message'] != null && result['id'] != null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Future.delayed(const Duration(seconds: 1), () {
+            Navigator.pop(context);
+          });
+        } else {
+          throw result['message'] ?? 'Registration failed.';
+        }
+      } else {
+        // Existing student registration logic
+        final userId = const Uuid().v4();
+
+        final Map<String, dynamic> payload = {
+          'id': userId,
+          'email': email,
+          'password': password,
+          'role': role,
+          'is_approved': false,
+          'name': _nameController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'available_days': _selectedDays,
+          'department': _selectedDepartment,
+          'class_level': _selectedClassLevel,
+          'interests': _selectedInterests,
+        };
+
+        await Supabase.instance.client.from('users').insert(payload);
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration submitted successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Future.delayed(const Duration(seconds: 1), () {
+          Navigator.pop(context);
+        });
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registration submitted successfully!'),
-          backgroundColor: Colors.green,
-        ),
+        SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
       );
-      Future.delayed(const Duration(seconds: 1), () {
-        Navigator.pop(context); // Optional: go to homepage
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
@@ -218,7 +270,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: details.onStepContinue,
+                      onPressed: _isLoading ? null : details.onStepContinue,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: const Color.fromARGB(255, 38, 55, 140),
@@ -227,10 +279,16 @@ class _RegisterPageState extends State<RegisterPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: Text(
-                        _currentStep == 3 ? 'Submit' : 'Continue',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      child: _isLoading && _currentStep == 3
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Text(
+                              _currentStep == 3 ? 'Submit' : 'Continue',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -486,25 +544,48 @@ class _RegisterPageState extends State<RegisterPage> {
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             decoration: BoxDecoration(
               border: Border.all(
-                color: Colors.grey.shade300,
+                color: _selectedFileName != null ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey.shade300,
                 style: BorderStyle.solid,
+                width: _selectedFileName != null ? 2 : 1,
               ),
               borderRadius: BorderRadius.circular(8),
               color: Colors.white,
             ),
             child: Column(
               children: [
-                const Icon(Icons.upload_file, size: 32, color: Colors.grey),
+                Icon(
+                  _selectedFileName != null ? Icons.check_circle : Icons.upload_file, 
+                  size: 32, 
+                  color: _selectedFileName != null ? Colors.green : Colors.grey
+                ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Upload Graduation Document',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                Text(
+                  _selectedFileName ?? 'Upload Graduation Document',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.center,
                 ),
                 TextButton(
-                  onPressed: () {
-                    /* File Picker placeholder */
+                  onPressed: () async {
+                    if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+                      // Desktop specific check if needed
+                    }
+
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                      withData: true,
+                    );
+
+                    if (result != null && result.files.isNotEmpty) {
+                      final file = result.files.first;
+                      setState(() {
+                        _selectedFileName = file.name;
+                        _selectedPlatformFile = file;
+                        _selectedFilePath = file.path;
+                      });
+                    }
                   },
-                  child: const Text('Select File'),
+                  child: Text(_selectedFileName != null ? 'Change File' : 'Select File'),
                 ),
               ],
             ),

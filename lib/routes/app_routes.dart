@@ -6,6 +6,8 @@ import '../features/student/screens/home_page_student.dart';
 import '../features/student/screens/announcements_page.dart';
 import '../features/admin/presentation/screens/admin_main_screen.dart';
 
+import '../features/auth/screens/pending_approval_page.dart';
+
 class AppRoutes {
   static const String initialRoute = '/';
   static const String loginRoute = '/';
@@ -13,6 +15,7 @@ class AppRoutes {
   static const String studentHomeRoute = '/studentHome';
   static const String announcementsRoute = '/announcements';
   static const String adminRoute = '/admin';
+  static const String pendingRoute = '/pending';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -21,6 +24,7 @@ class AppRoutes {
       studentHomeRoute: (context) => const HomePageStudent(),
       announcementsRoute: (context) => const AnnouncementsPage(),
       adminRoute: (context) => const AdminMainScreen(),
+      pendingRoute: (context) => const PendingApprovalPage(),
     };
   }
 }

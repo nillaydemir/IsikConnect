@@ -16,6 +16,7 @@ void main() async {
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '',
   );
+
   runApp(const IsikConnectApp());
 }
 

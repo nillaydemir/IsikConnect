@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:io';
 import '../../../core/models/user_models.dart';
 import '../../../core/services/matching_service.dart';
 
@@ -18,7 +22,7 @@ class _HomePageStudentState extends State<HomePageStudent> {
     _MyMentorTab(),
     _PlaceholderTab(title: 'Available workshops'),
     _PlaceholderTab(title: 'Community discussions'),
-    _PlaceholderTab(title: 'User profile'),
+    _ProfileTab(),
   ];
 
   void _onItemTapped(int index) {
@@ -370,7 +374,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                           38,
                           55,
                           140,
-                        ).withOpacity(0.1),
+                        ).withValues(alpha: 0.1),
                         child: Text(
                           _matchedMentor!.name.substring(0, 1),
                           style: const TextStyle(
@@ -486,3 +490,135 @@ class _MyMentorTabState extends State<_MyMentorTab> {
     );
   }
 }
+
+class _ProfileTab extends StatefulWidget {
+  const _ProfileTab();
+
+  @override
+  State<_ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<_ProfileTab> {
+  bool _isUploading = false;
+  String? _uploadStatus;
+
+  Future<void> _uploadDocument() async {
+    try {
+      if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+        // Handle desktop specific logic if needed or just proceed
+      }
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final pickedFile = result.files.first;
+        if (pickedFile.path == null) throw 'File path is null';
+
+        setState(() {
+          _isUploading = true;
+          _uploadStatus = 'Uploading document...';
+        });
+
+        File file = File(pickedFile.path!);
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
+        
+        // Ensure you have a 'documents' bucket in Supabase
+        await Supabase.instance.client.storage
+            .from('documents')
+            .upload(fileName, file);
+
+        final documentUrl = Supabase.instance.client.storage
+            .from('documents')
+            .getPublicUrl(fileName);
+
+        // Assume the user is logged in, use their real ID or a dummy UUID for now
+        final dummyUserId = Supabase.instance.client.auth.currentUser?.id ?? '00000000-0000-0000-0000-000000000000';
+
+        await Supabase.instance.client.from('applications').insert({
+          'user_id': dummyUserId,
+          'role': 'student',
+          'document_url': documentUrl,
+          'status': 'pending',
+        });
+
+        setState(() {
+          _isUploading = false;
+          _uploadStatus = 'Document uploaded successfully! Application pending.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isUploading = false;
+        _uploadStatus = 'Error uploading: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'User Profile',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Student Verification',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'To access all features and get matched with mentors, please upload your student certificate (Öğrenci Belgesi).',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 20),
+                  if (_uploadStatus != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text(
+                        _uploadStatus!,
+                        style: TextStyle(
+                            color: _uploadStatus!.contains('Error') ? Colors.red : Colors.green,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isUploading ? null : _uploadDocument,
+                      icon: _isUploading 
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+                          : const Icon(Icons.upload_file),
+                      label: Text(_isUploading ? 'Uploading...' : 'Upload Öğrenci Belgesi'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: const Color.fromARGB(255, 38, 55, 140),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+

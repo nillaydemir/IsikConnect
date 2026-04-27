@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/models/app_user_model.dart';
+import '../../../core/services/current_session.dart';
+import '../../../core/services/api_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -10,6 +14,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -88,7 +93,9 @@ class _LoginPageState extends State<LoginPage> {
                     // ------------------------
 
                     try {
-                      // Custom Login: Verify credentials entirely from public.users table
+                      setState(() => _isLoading = true);
+                      
+                      // Check user role first
                       final userDoc = await Supabase.instance.client
                           .from('users')
                           .select()
@@ -100,23 +107,47 @@ class _LoginPageState extends State<LoginPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('User not found. Please register first.'), backgroundColor: Colors.red),
                         );
-                      } else if (userDoc['password'] != password) {
+                        return;
+                      }
+
+                      if (userDoc['role'] == 'mentor') {
+                        final apiService = ApiService();
+                        final result = await apiService.loginMentor(email, password);
+
                         if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Incorrect password.'), backgroundColor: Colors.red),
-                        );
-                      } else {
-                        if (!context.mounted) return;
-                        // Credentials are correct, navigate to app
-                        CurrentSession().user = AppUser.fromJson(userDoc);
-                        
-                        // Proceed to corresponding home based on role
-                        if (userDoc['role'] == 'mentor') {
-                           Navigator.pushReplacementNamed(context, '/mentorHome');
-                        } else if (userDoc['role'] == 'admin') {
-                           Navigator.pushReplacementNamed(context, '/admin');
+
+                        if (result['token'] != null) {
+                          // Approved mentor
+                          CurrentSession().user = AppUser.fromJson(userDoc);
+                          Navigator.pushReplacementNamed(context, '/mentorHome');
+                        } else if (result['status'] == 'pending') {
+                          Navigator.pushNamed(context, '/pending');
+                        } else if (result['status'] == 'rejected') {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Your application was rejected'), backgroundColor: Colors.red),
+                          );
                         } else {
-                           Navigator.pushReplacementNamed(context, '/studentHome');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(result['message'] ?? 'Login failed'), backgroundColor: Colors.red),
+                          );
+                        }
+                      } else {
+                        // Student logic
+                        if (userDoc['password'] != password) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Incorrect password.'), backgroundColor: Colors.red),
+                          );
+                        } else {
+                          if (!context.mounted) return;
+                          CurrentSession().user = AppUser.fromJson(userDoc);
+                          
+                          // Proceed to corresponding home based on role
+                          if (userDoc['role'] == 'admin') {
+                             Navigator.pushReplacementNamed(context, '/admin');
+                          } else {
+                             Navigator.pushReplacementNamed(context, '/studentHome');
+                          }
                         }
                       }
                     } catch (e) {
@@ -124,6 +155,8 @@ class _LoginPageState extends State<LoginPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                       );
+                    } finally {
+                      setState(() => _isLoading = false);
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -134,10 +167,16 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: const Text(
-                    'Login',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                  child: _isLoading 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Login',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
