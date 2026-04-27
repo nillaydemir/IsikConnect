@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
@@ -503,19 +504,26 @@ class _ProfileTabState extends State<_ProfileTab> {
 
   Future<void> _uploadDocument() async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
+      if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+        // Handle desktop specific logic if needed or just proceed
+      }
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
       );
 
-      if (result != null && result.files.single.path != null) {
+      if (result != null && result.files.isNotEmpty) {
+        final pickedFile = result.files.first;
+        if (pickedFile.path == null) throw 'File path is null';
+
         setState(() {
           _isUploading = true;
           _uploadStatus = 'Uploading document...';
         });
 
-        File file = File(result.files.single.path!);
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}';
+        File file = File(pickedFile.path!);
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
         
         // Ensure you have a 'documents' bucket in Supabase
         await Supabase.instance.client.storage

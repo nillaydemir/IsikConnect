@@ -5,11 +5,14 @@ import '../features/auth/screens/register_page.dart';
 import '../features/student/screens/home_page_student.dart';
 import '../features/student/screens/announcements_page.dart';
 
+import '../features/auth/screens/pending_approval_page.dart';
+
 class AppRoutes {
   static const String initialRoute = '/';
   static const String registerRoute = '/register';
   static const String studentHomeRoute = '/studentHome';
   static const String announcementsRoute = '/announcements';
+  static const String pendingRoute = '/pending';
 
   static Map<String, WidgetBuilder> get routes {
     return {
@@ -17,6 +20,7 @@ class AppRoutes {
       registerRoute: (context) => const RegisterPage(),
       studentHomeRoute: (context) => const HomePageStudent(),
       announcementsRoute: (context) => const AnnouncementsPage(),
+      pendingRoute: (context) => const PendingApprovalPage(),
     };
   }
 }

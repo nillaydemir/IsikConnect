@@ -40,7 +40,7 @@ class AppUser {
       role: json['role'] as String,
       isApproved: json['is_approved'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
-      name: json['name'] as String?,
+      name: (json['name'] ?? json['full_name']) as String?,
       phone: json['phone'] as String?,
       availableDays: (json['available_days'] as List?)?.map((e) => e as String).toList(),
       department: json['department'] as String?,

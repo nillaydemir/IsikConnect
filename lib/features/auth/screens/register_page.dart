@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../../core/services/api_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -74,6 +78,12 @@ class _RegisterPageState extends State<RegisterPage> {
   final List<String> _maxStudentsList = ['1', '2', '3', '5', '10'];
   String? _selectedMaxStudents;
 
+  // File picking
+  String? _selectedFileName;
+  String? _selectedFilePath;
+  dynamic _selectedPlatformFile; // Store PlatformFile for cross-platform support
+
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -129,52 +139,85 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
+      print('--- Registering Button Pressed ---');
+      print('File Name: $_selectedFileName');
+      print('File Path: $_selectedFilePath');
+      print('PlatformFile present: ${_selectedPlatformFile != null}');
+      
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
       final role = _selectedRole?.toLowerCase() ?? 'student';
 
-      final userId = const Uuid().v4();
-
-      // 2. Prepare payload for public.users table
-      final Map<String, dynamic> payload = {
-        'id': userId,
-        'email': email,
-        'password': password,
-        'role': role,
-        'is_approved': false,
-        'name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'available_days': _selectedDays,
-      };
-
-      if (role == 'student') {
-        payload['department'] = _selectedDepartment;
-        payload['class_level'] = _selectedClassLevel;
-        payload['interests'] = _selectedInterests;
-      } else if (role == 'mentor') {
-        payload['department'] = _selectedDepartment;
-        payload['graduation_year'] = _selectedGradYear;
-        payload['company'] = _companyController.text.trim();
-        payload['job_title'] = _jobTitleController.text.trim();
-        if (_selectedMaxStudents != null) {
-          payload['max_students'] = int.tryParse(_selectedMaxStudents!);
+      if (role == 'mentor') {
+        if (_selectedFilePath == null) {
+          throw 'Please upload your graduation document.';
         }
-        payload['interests'] = _selectedInterests; // Shared mentorship areas
+
+        final apiService = ApiService();
+        
+        // 1. Prepare payload
+        final Map<String, dynamic> payload = {
+          'full_name': _nameController.text.trim(),
+          'email': email,
+          'password': password,
+          'phone': _phoneController.text.trim(),
+          'available_days': _selectedDays,
+          'department': _selectedDepartment,
+          'graduation_year': _selectedGradYear,
+          'company': _companyController.text.trim(),
+          'job_title': _jobTitleController.text.trim(),
+          'max_students': int.tryParse(_selectedMaxStudents ?? '1'),
+          'interests': _selectedInterests,
+        };
+        
+        // 2. Call backend API with both data and file in a single multipart request
+        final result = await apiService.registerMentor(payload, _selectedPlatformFile);
+        
+        if (result['message'] != null && result['id'] != null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Future.delayed(const Duration(seconds: 1), () {
+            Navigator.pop(context);
+          });
+        } else {
+          throw result['message'] ?? 'Registration failed.';
+        }
+      } else {
+        // Existing student registration logic
+        final userId = const Uuid().v4();
+
+        final Map<String, dynamic> payload = {
+          'id': userId,
+          'email': email,
+          'password': password,
+          'role': role,
+          'is_approved': false,
+          'name': _nameController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'available_days': _selectedDays,
+          'department': _selectedDepartment,
+          'class_level': _selectedClassLevel,
+          'interests': _selectedInterests,
+        };
+
+        await Supabase.instance.client.from('users').insert(payload);
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration submitted successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Future.delayed(const Duration(seconds: 1), () {
+          Navigator.pop(context);
+        });
       }
-
-      // 3. Insert into public.users table directly bypassing Auth
-      await Supabase.instance.client.from('users').insert(payload);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registration submitted successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Future.delayed(const Duration(seconds: 1), () {
-        Navigator.pop(context); // Go back to login or homepage
-      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
@@ -501,25 +544,48 @@ class _RegisterPageState extends State<RegisterPage> {
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             decoration: BoxDecoration(
               border: Border.all(
-                color: Colors.grey.shade300,
+                color: _selectedFileName != null ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey.shade300,
                 style: BorderStyle.solid,
+                width: _selectedFileName != null ? 2 : 1,
               ),
               borderRadius: BorderRadius.circular(8),
               color: Colors.white,
             ),
             child: Column(
               children: [
-                const Icon(Icons.upload_file, size: 32, color: Colors.grey),
+                Icon(
+                  _selectedFileName != null ? Icons.check_circle : Icons.upload_file, 
+                  size: 32, 
+                  color: _selectedFileName != null ? Colors.green : Colors.grey
+                ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Upload Graduation Document',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                Text(
+                  _selectedFileName ?? 'Upload Graduation Document',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.center,
                 ),
                 TextButton(
-                  onPressed: () {
-                    /* File Picker placeholder */
+                  onPressed: () async {
+                    if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+                      // Desktop specific check if needed
+                    }
+
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                      withData: true,
+                    );
+
+                    if (result != null && result.files.isNotEmpty) {
+                      final file = result.files.first;
+                      setState(() {
+                        _selectedFileName = file.name;
+                        _selectedPlatformFile = file;
+                        _selectedFilePath = file.path;
+                      });
+                    }
                   },
-                  child: const Text('Select File'),
+                  child: Text(_selectedFileName != null ? 'Change File' : 'Select File'),
                 ),
               ],
             ),
