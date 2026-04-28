@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
@@ -69,9 +71,9 @@ class _LoginPageState extends State<LoginPage> {
                 ElevatedButton(
                   onPressed: () async {
                     final email = _emailController.text.trim();
-                    final password = _passwordController.text.trim();
+                    final rawPassword = _passwordController.text.trim();
                     
-                    if (email.isEmpty || password.isEmpty) {
+                    if (email.isEmpty || rawPassword.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please enter an email and password.'), backgroundColor: Colors.red),
                       );
@@ -79,7 +81,7 @@ class _LoginPageState extends State<LoginPage> {
                     }
 
                     // --- MOCK ADMIN CHECK ---
-                    if (email == 'admin@isikconnect.edu.tr' && password == 'admin123') {
+                    if (email == 'admin@isikconnect.edu.tr' && rawPassword == 'admin123') {
                       CurrentSession().user = AppUser.fromJson({
                         'id': 'mock-admin-id',
                         'email': 'admin@isikconnect.edu.tr',
@@ -91,6 +93,8 @@ class _LoginPageState extends State<LoginPage> {
                       return;
                     }
                     // ------------------------
+
+                    final password = sha256.convert(utf8.encode(rawPassword)).toString();
 
                     try {
                       setState(() => _isLoading = true);
@@ -131,8 +135,7 @@ class _LoginPageState extends State<LoginPage> {
                             SnackBar(content: Text(result['message'] ?? 'Login failed'), backgroundColor: Colors.red),
                           );
                         }
-                      } else {
-                        // Student logic
+                      } else if (userDoc['role'] == 'admin') {
                         if (userDoc['password'] != password) {
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -141,13 +144,29 @@ class _LoginPageState extends State<LoginPage> {
                         } else {
                           if (!context.mounted) return;
                           CurrentSession().user = AppUser.fromJson(userDoc);
-                          
-                          // Proceed to corresponding home based on role
-                          if (userDoc['role'] == 'admin') {
-                             Navigator.pushReplacementNamed(context, '/admin');
-                          } else {
-                             Navigator.pushReplacementNamed(context, '/studentHome');
-                          }
+                          Navigator.pushReplacementNamed(context, '/admin');
+                        }
+                      } else {
+                        // Student logic
+                        final apiService = ApiService();
+                        final result = await apiService.loginStudent(email, password);
+
+                        if (!context.mounted) return;
+
+                        if (result['token'] != null) {
+                          // Approved student
+                          CurrentSession().user = AppUser.fromJson(userDoc);
+                          Navigator.pushReplacementNamed(context, '/studentHome');
+                        } else if (result['status'] == 'pending') {
+                          Navigator.pushNamed(context, '/pending');
+                        } else if (result['status'] == 'rejected') {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Your application was rejected'), backgroundColor: Colors.red),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(result['message'] ?? 'Login failed'), backgroundColor: Colors.red),
+                          );
                         }
                       }
                     } catch (e) {

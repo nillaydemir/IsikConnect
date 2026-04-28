@@ -103,25 +103,18 @@ class MentorRequestDetailScreen extends StatelessWidget {
             const SizedBox(height: 24),
             _buildInfoCard(
               context: context,
-              title: 'Education',
-              content: '${application.university}\n${application.department}',
-              icon: Icons.school_outlined,
-            ),
-            const SizedBox(height: 16),
-            _buildExpertiseCard(context, primaryColor),
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              context: context,
-              title: 'Bio & Experience',
-              content: application.bio,
-              icon: Icons.person_outline,
+              title: 'Role & Background',
+              content: '${application.role}\n${application.subTitle}',
+              icon: Icons.work_outline,
             ),
             const SizedBox(height: 16),
             _buildInfoCard(
               context: context,
-              title: 'Motivation',
-              content: application.motivation,
-              icon: Icons.favorite_outline,
+              title: 'Verification Document',
+              content: application.documentUrl.isNotEmpty 
+                ? 'URL: ${application.documentUrl}\n(Requires download to review)' 
+                : 'No document attached',
+              icon: Icons.description_outlined,
             ),
             const SizedBox(height: 100), // Space for bottom buttons
           ],
@@ -259,52 +252,5 @@ class MentorRequestDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildExpertiseCard(BuildContext context, Color primaryColor) {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: primaryColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.star_outline, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Expertise Areas',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: application.expertiseAreas.map((area) {
-                return Chip(
-                  label: Text(area),
-                  backgroundColor: primaryColor.withOpacity(0.05),
-                  labelStyle: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
-                  side: BorderSide(color: primaryColor.withOpacity(0.2)),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+// Removed _buildExpertiseCard
 }

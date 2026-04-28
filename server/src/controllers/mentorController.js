@@ -53,7 +53,8 @@ const registerMentor = async (req, res) => {
     
     // 1. File upload to Supabase Storage
     const file = req.file;
-    const fileName = `${Date.now()}_${file.originalname}`;
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = `${Date.now()}_${sanitizedName}`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(fileName, file.buffer, {
@@ -63,7 +64,7 @@ const registerMentor = async (req, res) => {
 
     if (uploadError) {
       console.error('File upload error:', uploadError);
-      throw uploadError;
+      throw { stage: 'file_upload', error: uploadError };
     }
 
     const { data: publicUrlData } = supabase.storage
@@ -86,44 +87,53 @@ const registerMentor = async (req, res) => {
 
     const userId = authData.user.id;
 
+    // First and last name extraction 
+    const nameParts = full_name.trim().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     // 3. Insert into custom "users" table
-    const { error: insertUserError } = await supabase
-      .from('users')
-      .insert([{
+    const { error: insertUserError } = await supabase.from('users').insert([{ 
         id: userId,
-        name: full_name,
+        first_name: firstName,
+        last_name: lastName,
         email,
         role: 'mentor',
         phone,
-        available_days,
-        department,
-        graduation_year,
-        company,
-        job_title,
-        max_students,
-        interests,
         is_approved: false
-      }]);
-
+       }]);
     if (insertUserError) {
       console.error('DB Users insert error:', insertUserError);
-      throw insertUserError;
+      throw { stage: 'users_insert', error: insertUserError };
     }
 
     // 4. Insert into "mentors" table
-    const { error: insertMentorError } = await supabase
-      .from('mentors')
-      .insert([{
+    const { error: insertMentorError } = await supabase.from('mentors').insert([{ 
         id: userId,
-        full_name: full_name,
-        email,
         graduation_document_url: graduation_doc_url,
+        company,
+        job_title,
+        graduation_year,
+        max_students,
+        interests,
+        available_days,
         status: 'pending'
-      }]);
-
+       }]);
     if (insertMentorError) {
       console.error('DB Mentors insert error:', insertMentorError);
-      throw insertMentorError;
+      throw { stage: 'mentors_insert', error: insertMentorError };
+    }
+
+    // 5. Insert into "applications" table
+    const { error: insertAppError } = await supabase.from('applications').insert([{ 
+        user_id: userId,
+        role: 'mentor',
+        document_url: graduation_doc_url,
+        status: 'pending'
+       }]);
+    if (insertAppError) {
+      console.error('DB Applications insert error:', insertAppError);
+      throw { stage: 'applications_insert', error: insertAppError };
     }
 
     res.status(201).json({
@@ -138,7 +148,10 @@ const registerMentor = async (req, res) => {
     console.error("Registration error:", error);
     res.status(500).json({ 
       message: 'Server error during mentor registration',
-      error: error.message || error 
+      error: error.message || error,
+      details: error.details,
+      hint: error.hint,
+      stage: error.stage
     });
   }
 };
@@ -218,7 +231,8 @@ const uploadDoc = async (req, res) => {
     }
 
     const file = req.file;
-    const fileName = `${Date.now()}_${file.originalname}`;
+    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = `${Date.now()}_${sanitizedName}`;
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(fileName, file.buffer, {

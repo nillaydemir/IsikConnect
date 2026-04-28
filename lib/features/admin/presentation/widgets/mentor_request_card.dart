@@ -59,7 +59,7 @@ class MentorRequestCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${application.department} - ${application.university}',
+                        '${application.role}  •  ${application.subTitle}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: Colors.grey.shade700),

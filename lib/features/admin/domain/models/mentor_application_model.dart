@@ -2,44 +2,54 @@ class MentorApplicationModel {
   final String id;
   final String name;
   final String email;
+  final String role;
   final String? avatarUrl;
-  final String university;
-  final String department;
-  final List<String> expertiseAreas;
-  final String bio;
-  final String motivation;
+  
+  // Dynamic specificity handled genericly
+  final String subTitle; 
+  final String documentUrl;
+  
   final DateTime applicationDate;
-  final String status; // 'pending', 'approved', 'rejected'
+  final String status;
 
   MentorApplicationModel({
     required this.id,
     required this.name,
     required this.email,
+    required this.role,
     this.avatarUrl,
-    required this.university,
-    required this.department,
-    required this.expertiseAreas,
-    required this.bio,
-    required this.motivation,
+    required this.subTitle,
+    required this.documentUrl,
     required this.applicationDate,
     this.status = 'pending',
   });
 
-  MentorApplicationModel copyWith({
-    String? status,
-  }) {
+  factory MentorApplicationModel.fromJson(Map<String, dynamic> json) {
+    // Backend drops: users: {first_name, last_name, email}, specific: {department, company...}
+    final users = json['users'] ?? {};
+    final specific = json['specific'] ?? {};
+    
+    final name = '${users['first_name'] ?? 'Unknown'} ${users['last_name'] ?? ''}'.trim();
+    final email = users['email'] ?? 'No email';
+    final role = json['role'] ?? 'student';
+    
+    String subTitle;
+    if (role == 'student') {
+      subTitle = '${specific['department'] ?? 'Department Unknown'} - ${specific['class_level'] ?? 'Class Unknown'}';
+    } else {
+      subTitle = '${specific['job_title'] ?? 'Job Title Unknown'} at ${specific['company'] ?? 'Company Unknown'}';
+    }
+
     return MentorApplicationModel(
-      id: id,
+      id: json['id'] ?? '',
       name: name,
       email: email,
-      avatarUrl: avatarUrl,
-      university: university,
-      department: department,
-      expertiseAreas: expertiseAreas,
-      bio: bio,
-      motivation: motivation,
-      applicationDate: applicationDate,
-      status: status ?? this.status,
+      role: role.toString().toUpperCase(),
+      avatarUrl: null,
+      subTitle: subTitle,
+      documentUrl: json['document_url'] ?? '',
+      applicationDate: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
+      status: json['status'] ?? 'pending',
     );
   }
 }
