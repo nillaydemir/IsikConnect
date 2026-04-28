@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../domain/models/mentor_application_model.dart';
+import '../../../core/services/api_service.dart';
 
 class AdminApprovalsProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -20,34 +21,9 @@ class AdminApprovalsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
+      final data = await ApiService().getPendingApplications();
+      _pendingApplications = data.map((json) => MentorApplicationModel.fromJson(json)).toList();
 
-      // Mock Data
-      _pendingApplications = [
-        MentorApplicationModel(
-          id: '1',
-          name: 'Jane Doe',
-          email: 'jane.doe@example.com',
-          university: 'Isik University',
-          department: 'Computer Engineering',
-          expertiseAreas: ['Flutter', 'Firebase', 'UI/UX'],
-          bio: 'I am a senior student with 2 years of freelance experience in mobile app development.',
-          motivation: 'I want to help junior students avoid the mistakes I made when I first started learning Flutter.',
-          applicationDate: DateTime.now().subtract(const Duration(days: 1)),
-        ),
-        MentorApplicationModel(
-          id: '2',
-          name: 'John Smith',
-          email: 'john.smith@example.com',
-          university: 'Isik University',
-          department: 'Software Engineering',
-          expertiseAreas: ['Node.js', 'Express', 'MongoDB'],
-          bio: 'Backend developer passionate about scalable systems.',
-          motivation: 'I love teaching and sharing my knowledge about system design and backend architecture.',
-          applicationDate: DateTime.now().subtract(const Duration(hours: 5)),
-        ),
-      ];
     } catch (e) {
       _error = 'Failed to load applications. Please try again.';
     } finally {
@@ -61,10 +37,7 @@ class AdminApprovalsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
-      
-      // Update mock state
+      await ApiService().updateApplicationStatus(id, 'approved');
       _pendingApplications.removeWhere((app) => app.id == id);
       
     } catch (e) {
@@ -80,10 +53,7 @@ class AdminApprovalsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 1));
-      
-      // Update mock state
+      await ApiService().updateApplicationStatus(id, 'rejected');
       _pendingApplications.removeWhere((app) => app.id == id);
       
     } catch (e) {

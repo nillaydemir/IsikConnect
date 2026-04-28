@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,7 +20,8 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isLoading = false;
 
   // -- Step 1: Common Info --
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -37,23 +40,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _selectedRole; // 'Student' or 'Mentor'
 
   // -- Step 3: Role Details
-  final Map<String, List<String>> _departmentInterests = {
-    'Computer Engineering': ['Web Development', 'Mobile Development', 'AI / Machine Learning', 'Data Science', 'Backend Development'],
-    'Software Engineering': ['Web Development', 'Mobile Development', 'AI / Machine Learning', 'Data Science', 'Backend Development'],
-    'Industrial Engineering': ['Supply Chain', 'Operations Research', 'Data Analytics', 'Quality Control'],
-    'Electrical and Electronics Engineering': ['Embedded Systems', 'IoT', 'Circuit Design', 'Robotics'],
-    'Mechanical Engineering': ['CAD Design', 'Thermodynamics', 'Robotics', 'Mechatronics'],
-    'Civil Engineering': ['Structural Engineering', 'Construction Management', 'Geotechnical'],
-    'Psychology': ['Clinical Psychology', 'Cognitive Psychology', 'Behavioral Science'],
-    'Mathematics': ['Applied Mathematics', 'Statistics', 'Cryptography'],
-    'Physics': ['Quantum Physics', 'Astrophysics', 'Materials Science'],
-    'Business Administration': ['Marketing', 'Finance', 'Human Resources', 'Management'],
-    'International Trade and Finance': ['Global Markets', 'Trade Policy', 'Investment Banking'],
-    'Economics': ['Macroeconomics', 'Microeconomics', 'Econometrics'],
-    'Architecture': ['Urban Design', 'Sustainable Architecture', 'Landscape'],
-    'Interior Architecture and Environmental Design': ['Space Planning', 'Furniture Design', 'Lighting'],
-    'Nursing': ['Patient Care', 'Pediatrics', 'Public Health'],
-  };
+  Map<String, List<String>> _departmentInterests = {};
 
   String? _selectedDepartment;
   final List<String> _selectedInterests = [];
@@ -85,8 +72,41 @@ class _RegisterPageState extends State<RegisterPage> {
 
 
   @override
+  void initState() {
+    super.initState();
+    _fetchDepartmentsAndInterests();
+  }
+
+  Future<void> _fetchDepartmentsAndInterests() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('departments')
+          .select('name, interests(name)');
+
+      final Map<String, List<String>> fetchedData = {};
+      
+      for (var dept in response) {
+        final deptName = dept['name'] as String;
+        final interestsList = (dept['interests'] as List)
+            .map((i) => i['name'] as String)
+            .toList();
+        fetchedData[deptName] = interestsList;
+      }
+
+      if (mounted) {
+        setState(() {
+          _departmentInterests = fetchedData;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching departments: $e');
+    }
+  }
+
+  @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
@@ -98,7 +118,8 @@ class _RegisterPageState extends State<RegisterPage> {
   void _nextStep() {
     // Basic validation
     if (_currentStep == 0) {
-      if (_nameController.text.isEmpty ||
+      if (_firstNameController.text.isEmpty ||
+          _lastNameController.text.isEmpty ||
           _emailController.text.isEmpty ||
           _passwordController.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +166,8 @@ class _RegisterPageState extends State<RegisterPage> {
       print('PlatformFile present: ${_selectedPlatformFile != null}');
       
       final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
+      final rawPassword = _passwordController.text.trim();
+      final password = sha256.convert(utf8.encode(rawPassword)).toString();
       final role = _selectedRole?.toLowerCase() ?? 'student';
 
       if (role == 'mentor') {
@@ -155,9 +177,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
         final apiService = ApiService();
         
-        // 1. Prepare payload
+        // 1. Prepare payload (Mentors API might still expect full_name, so we merge them here temporarily)
         final Map<String, dynamic> payload = {
-          'full_name': _nameController.text.trim(),
+          'full_name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
           'email': email,
           'password': password,
           'phone': _phoneController.text.trim(),
@@ -188,16 +210,16 @@ class _RegisterPageState extends State<RegisterPage> {
           throw result['message'] ?? 'Registration failed.';
         }
       } else {
-        // Existing student registration logic
-        final userId = const Uuid().v4();
+        if (_selectedPlatformFile == null) {
+          throw 'Please upload your student document (Öğrenci Belgesi).';
+        }
 
+        final apiService = ApiService();
+        
         final Map<String, dynamic> payload = {
-          'id': userId,
+          'full_name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
           'email': email,
-          'password': password,
-          'role': role,
-          'is_approved': false,
-          'name': _nameController.text.trim(),
+          'password': password, // Already hashed above!
           'phone': _phoneController.text.trim(),
           'available_days': _selectedDays,
           'department': _selectedDepartment,
@@ -205,18 +227,22 @@ class _RegisterPageState extends State<RegisterPage> {
           'interests': _selectedInterests,
         };
 
-        await Supabase.instance.client.from('users').insert(payload);
+        final result = await apiService.registerStudent(payload, _selectedPlatformFile);
 
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration submitted successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Future.delayed(const Duration(seconds: 1), () {
-          Navigator.pop(context);
-        });
+        if (result['message'] != null && result['id'] != null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Future.delayed(const Duration(seconds: 1), () {
+            Navigator.pop(context);
+          });
+        } else {
+          throw result['message'] ?? 'Student registration failed.';
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -374,7 +400,13 @@ class _RegisterPageState extends State<RegisterPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-        _buildTextField('Full Name *', _nameController, Icons.person_outline),
+        Row(
+          children: [
+            Expanded(child: _buildTextField('First Name *', _firstNameController, Icons.person_outline)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildTextField('Last Name *', _lastNameController, Icons.person_outline)),
+          ],
+        ),
         const SizedBox(height: 16),
         _buildTextField(
           'Email *',
@@ -470,6 +502,9 @@ class _RegisterPageState extends State<RegisterPage> {
           // Reset dependent fields when role switches
           _selectedDepartment = null;
           _selectedInterests.clear();
+          _selectedFileName = null;
+          _selectedFilePath = null;
+          _selectedPlatformFile = null;
         });
       },
       child: Container(
@@ -518,6 +553,58 @@ class _RegisterPageState extends State<RegisterPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: _selectedFileName != null ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey.shade300,
+                style: BorderStyle.solid,
+                width: _selectedFileName != null ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  _selectedFileName != null ? Icons.check_circle : Icons.upload_file, 
+                  size: 32, 
+                  color: _selectedFileName != null ? Colors.green : Colors.grey
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _selectedFileName ?? 'Upload Öğrenci Belgesi',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.center,
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+                      // Desktop specific check if needed
+                    }
+
+                    final result = await FilePicker.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+                      withData: true,
+                    );
+
+                    if (result != null && result.files.isNotEmpty) {
+                      final file = result.files.first;
+                      setState(() {
+                        _selectedFileName = file.name;
+                        _selectedPlatformFile = file;
+                        _selectedFilePath = file.path;
+                      });
+                    }
+                  },
+                  child: Text(_selectedFileName != null ? 'Change File' : 'Select File'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           _buildDepartmentDropdown(),
           const SizedBox(height: 16),
           _buildDropdown(
@@ -570,7 +657,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       // Desktop specific check if needed
                     }
 
-                    final result = await FilePicker.platform.pickFiles(
+                    final result = await FilePicker.pickFiles(
                       type: FileType.custom,
                       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
                       withData: true,

@@ -1,52 +1,71 @@
 const supabase = require('../config/supabase');
 
-const listPendingMentors = async (req, res) => {
+const listPendingApplications = async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('mentors')
-      .select('*')
+      .from('applications')
+      .select(`
+        *,
+        users (
+          first_name, last_name, email, phone
+        )
+      `)
       .eq('status', 'pending');
 
     if (error) throw error;
-    res.json(data);
+
+    let enrichedData = [];
+    for (const app of data) {
+      if (app.role === 'student') {
+        const { data: student } = await supabase.from('students').select('department, class_level').eq('id', app.user_id).single();
+        enrichedData.push({ ...app, specific: student });
+      } else if (app.role === 'mentor') {
+        const { data: mentor } = await supabase.from('mentors').select('company, job_title').eq('id', app.user_id).single();
+        enrichedData.push({ ...app, specific: mentor });
+      } else {
+        enrichedData.push({ ...app });
+      }
+    }
+
+    res.json(enrichedData);
   } catch (error) {
-    console.error('List pending mentors error:', error);
-    res.status(500).json({ message: 'Server error fetching pending mentors' });
+    console.error('List pending applications error:', error);
+    res.status(500).json({ message: 'Server error fetching pending applications' });
   }
 };
 
-const approveMentor = async (req, res) => {
-  const { mentorId, status } = req.body; // status: 'approved' or 'rejected'
+const updateApplicationStatus = async (req, res) => {
+  const { applicationId, status } = req.body;
 
   try {
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const { error: mentorUpdateError } = await supabase
-      .from('mentors')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', mentorId);
+    const { data: app, error: fetchError } = await supabase
+      .from('applications')
+      .select('*')
+      .eq('id', applicationId)
+      .single();
 
-    if (mentorUpdateError) throw mentorUpdateError;
+    if (fetchError || !app) throw fetchError || new Error("App not found");
+
+    await supabase.from('applications').update({ status }).eq('id', applicationId);
+    await supabase.from('users').update({ is_approved: status === 'approved' }).eq('id', app.user_id);
     
-    // Also update users table if needed
-    const isApproved = status === 'approved';
-    const { error: userUpdateError } = await supabase
-      .from('users')
-      .update({ is_approved: isApproved })
-      .eq('id', mentorId);
+    if (app.role === 'student' || app.role === 'mentor') {
+      const table = app.role === 'student' ? 'students' : 'mentors';
+      await supabase.from(table).update({ status }).eq('id', app.user_id);
+    }
 
-    if (userUpdateError) throw userUpdateError;
-
-    res.json({ message: `Mentor ${status} successfully` });
+    res.json({ message: `Application ${status}` });
   } catch (error) {
-    console.error('Approve mentor error:', error);
-    res.status(500).json({ message: 'Server error updating mentor status' });
+    console.error('App update error:', error);
+    res.status(500).json({ message: 'Server error updating status' });
   }
 };
 
 module.exports = {
-  listPendingMentors,
-  approveMentor
+  listPendingApplications,
+  updateApplicationStatus
 };

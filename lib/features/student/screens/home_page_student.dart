@@ -508,7 +508,7 @@ class _ProfileTabState extends State<_ProfileTab> {
         // Handle desktop specific logic if needed or just proceed
       }
 
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
       );
