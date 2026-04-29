@@ -64,6 +64,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _jobTitleController = TextEditingController();
   final List<String> _maxStudentsList = ['1', '2', '3', '5', '10'];
   String? _selectedMaxStudents;
+  final TextEditingController _customInterestController = TextEditingController();
 
   // File picking
   String? _selectedFileName;
@@ -112,6 +113,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _phoneController.dispose();
     _companyController.dispose();
     _jobTitleController.dispose();
+    _customInterestController.dispose();
     super.dispose();
   }
 
@@ -808,7 +810,9 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     final availableInterests = _departmentInterests[_selectedDepartment] ?? [];
-    if (availableInterests.isEmpty) return const SizedBox.shrink();
+    
+    // Combine predefined interests and any custom ones the user already added
+    final Set<String> displayInterests = {...availableInterests, ..._selectedInterests};
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,7 +825,7 @@ class _RegisterPageState extends State<RegisterPage> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: availableInterests.map((interest) {
+          children: displayInterests.map((interest) {
             final isSelected = _selectedInterests.contains(interest);
             return FilterChip(
               label: Text(interest),
@@ -859,6 +863,63 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             );
           }).toList(),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _customInterestController,
+                decoration: const InputDecoration(
+                  labelText: 'Add Custom Field/Interest',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  fillColor: Colors.white,
+                  filled: true,
+                ),
+                onSubmitted: (value) {
+                  final text = value.trim();
+                  if (text.isNotEmpty) {
+                    final isDuplicate = _selectedInterests.any((i) => i.toLowerCase() == text.toLowerCase());
+                    if (!isDuplicate) {
+                      setState(() {
+                        _selectedInterests.add(text);
+                        _customInterestController.clear();
+                      });
+                    } else {
+                      _customInterestController.clear();
+                    }
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () {
+                final text = _customInterestController.text.trim();
+                if (text.isNotEmpty) {
+                  final isDuplicate = _selectedInterests.any((i) => i.toLowerCase() == text.toLowerCase());
+                  if (!isDuplicate) {
+                    setState(() {
+                      _selectedInterests.add(text);
+                      _customInterestController.clear();
+                    });
+                  } else {
+                    _customInterestController.clear();
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                backgroundColor: const Color.fromARGB(255, 38, 55, 140),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Add'),
+            ),
+          ],
         ),
       ],
     );

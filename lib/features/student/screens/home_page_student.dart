@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../../../core/models/user_models.dart';
 import '../../../core/services/matching_service.dart';
+import '../../../core/services/current_session.dart';
 
 class HomePageStudent extends StatefulWidget {
   const HomePageStudent({super.key});
@@ -217,77 +218,103 @@ class _MyMentorTab extends StatefulWidget {
 }
 
 class _MyMentorTabState extends State<_MyMentorTab> {
-  // Dummy Logged In Student
-  late Student _currentStudent;
+  Student? _currentStudent;
   Mentor? _matchedMentor;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    // Simulate logged in student who selected specific department and interests
-    _currentStudent = Student(
-      id: 's1',
-      name: 'Nilay Demir',
-      email: 'nilay@isik.edu.tr',
-      department: 'Computer Engineering',
-      classLevel: '3rd Year',
-      requestedTopics: ['Mobile Development', 'AI / Machine Learning'],
-    );
+    _loadCurrentStudent();
+  }
+
+  void _loadCurrentStudent() {
+    final user = CurrentSession().user;
+    if (user != null) {
+      _currentStudent = Student(
+        id: user.id,
+        name: user.name ?? 'Unknown Student',
+        email: user.email,
+        department: user.department ?? '',
+        classLevel: user.classLevel ?? '',
+        requestedTopics: user.interests ?? [],
+      );
+    }
   }
 
   void _runMatching() async {
+    if (_currentStudent == null) {
+      setState(() {
+        _errorMessage = "Could not load your student profile.";
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      // 1. Fetch all users who are mentors and are approved
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('*, mentors(*)')
+          .eq('role', 'mentor')
+          .eq('is_approved', true);
 
-    // Dummy mentors in the system
-    List<Mentor> mentors = [
-      Mentor(
-        id: 'm1',
-        name: 'Ahmet Yılmaz',
-        email: 'ahmet@company.com',
-        department: 'Software Engineering',
-        graduationYear: '2020',
-        skills: ['Web Development', 'Backend Development'],
-        company: 'Tech Corp',
-        jobTitle: 'Backend Developer',
-        maxCapacity: 3,
-      ),
-      Mentor(
-        id: 'm2',
-        name: 'Elif Şahin',
-        email: 'elif@startup.io',
-        department: 'Computer Engineering',
-        graduationYear: '2019',
-        skills: ['UI/UX'],
-        company: 'Flutter Innovators',
-        jobTitle: 'Mobile Lead',
-        maxCapacity: 2,
-      ),
-      Mentor(
-        id: 'm3',
-        name: 'Can Aydın',
-        email: 'can@data.com',
-        department: 'Computer Engineering',
-        graduationYear: '2021',
-        skills: ['Mobile Development', 'AI / Machine Learning'],
-        company: 'DataTech',
-        jobTitle: 'Data Engineer',
-        maxCapacity: 1,
-      ),
-    ];
+      List<Mentor> mentors = [];
+      for (var row in response) {
+        // Parse the nested mentors data. It might be a Map (1-to-1) or a List (1-to-many).
+        final mentorDataRaw = row['mentors'];
+        if (mentorDataRaw == null) continue;
+        
+        Map<String, dynamic> mentorData;
+        if (mentorDataRaw is List) {
+          if (mentorDataRaw.isEmpty) continue;
+          mentorData = mentorDataRaw.first;
+        } else {
+          mentorData = mentorDataRaw as Map<String, dynamic>;
+        }
 
-    final matchingService = MatchingService();
-    final results = matchingService.assignMentors([_currentStudent], mentors);
+        List<String> skills = [];
+        if (mentorData['interests'] != null) {
+          skills = List<String>.from(mentorData['interests']);
+        }
 
-    setState(() {
-      _matchedMentor = results[_currentStudent];
-      _isLoading = false;
-    });
+        mentors.add(Mentor(
+          id: row['id'],
+          name: '${row['first_name']} ${row['last_name']}',
+          email: row['email'],
+          department: mentorData['department'] ?? '',
+          graduationYear: mentorData['graduation_year']?.toString() ?? '',
+          skills: skills,
+          company: mentorData['company'],
+          jobTitle: mentorData['job_title'],
+          maxCapacity: mentorData['max_students'] ?? 1,
+        ));
+      }
+
+      final matchingService = MatchingService();
+      final results = matchingService.assignMentors([_currentStudent!], mentors);
+
+      setState(() {
+        _matchedMentor = results[_currentStudent!];
+        if (_matchedMentor == null) {
+          _errorMessage = "No suitable mentor found right now. Please try again later or update your interests.";
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching mentors: $e';
+      });
+      print('Matching error: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -299,7 +326,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Finding the best mentor for you...'),
+            Text('Finding the best mentor for you from the database...'),
           ],
         ),
       );
@@ -320,11 +347,21 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                'Click the button below to run the AI Matching Algorithm based on your department and interests: \n${_currentStudent.requestedTopics.join(', ')}',
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
+              if (_currentStudent != null)
+                Text(
+                  'Click the button below to run the AI Matching Algorithm based on your department and interests: \n${_currentStudent!.requestedTopics.join(', ')}',
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: _runMatching,
@@ -425,9 +462,9 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _matchedMentor!.skills.map((skill) {
-                      bool isMatch = _currentStudent.requestedTopics.contains(
+                      bool isMatch = _currentStudent?.requestedTopics.contains(
                         skill,
-                      );
+                      ) ?? false;
                       return Chip(
                         label: Text(skill),
                         backgroundColor: isMatch

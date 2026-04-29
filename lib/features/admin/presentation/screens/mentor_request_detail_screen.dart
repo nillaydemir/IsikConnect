@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../domain/models/mentor_application_model.dart';
 import '../../providers/admin_approvals_provider.dart';
 
@@ -112,9 +113,27 @@ class MentorRequestDetailScreen extends StatelessWidget {
               context: context,
               title: 'Verification Document',
               content: application.documentUrl.isNotEmpty 
-                ? 'URL: ${application.documentUrl}\n(Requires download to review)' 
+                ? 'Document has been uploaded by the applicant.' 
                 : 'No document attached',
               icon: Icons.description_outlined,
+              actionWidget: application.documentUrl.isNotEmpty
+                ? OutlinedButton.icon(
+                    onPressed: () async {
+                      final url = Uri.parse(application.documentUrl);
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Could not open document link')),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('View Document'),
+                  )
+                : null,
             ),
             const SizedBox(height: 100), // Space for bottom buttons
           ],
@@ -211,6 +230,7 @@ class MentorRequestDetailScreen extends StatelessWidget {
     required String title,
     required String content,
     required IconData icon,
+    Widget? actionWidget,
   }) {
     return Card(
       elevation: 2,
@@ -246,6 +266,10 @@ class MentorRequestDetailScreen extends StatelessWidget {
               content,
               style: const TextStyle(fontSize: 15, height: 1.5),
             ),
+            if (actionWidget != null) ...[
+              const SizedBox(height: 16),
+              actionWidget,
+            ],
           ],
         ),
       ),

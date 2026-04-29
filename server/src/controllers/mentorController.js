@@ -111,6 +111,7 @@ const registerMentor = async (req, res) => {
     const { error: insertMentorError } = await supabase.from('mentors').insert([{ 
         id: userId,
         graduation_document_url: graduation_doc_url,
+        department,
         company,
         job_title,
         graduation_year,
@@ -212,7 +213,7 @@ const loginMentor = async (req, res) => {
 
     res.json({
       id: user.id,
-      name: user.full_name,
+      name: `${user.first_name} ${user.last_name}`,
       email: user.email,
       role: 'mentor',
       status: status,

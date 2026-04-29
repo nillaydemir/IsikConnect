@@ -42,7 +42,10 @@ class MatchingService {
     }
 
     for (var requirement in student.requestedTopics) {
-      if (mentor.skills.contains(requirement)) {
+      bool hasMatch = mentor.skills.any((skill) => 
+          skill.trim().toLowerCase() == requirement.trim().toLowerCase());
+          
+      if (hasMatch) {
         score += skillMatchScore;
       }
     }

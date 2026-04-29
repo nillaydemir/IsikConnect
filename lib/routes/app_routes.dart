@@ -7,6 +7,7 @@ import '../features/student/screens/announcements_page.dart';
 import '../features/admin/presentation/screens/admin_main_screen.dart';
 
 import '../features/auth/screens/pending_approval_page.dart';
+import '../features/mentor/screens/home_page_mentor.dart';
 
 class AppRoutes {
   static const String initialRoute = '/';
@@ -25,6 +26,7 @@ class AppRoutes {
       announcementsRoute: (context) => const AnnouncementsPage(),
       adminRoute: (context) => const AdminMainScreen(),
       pendingRoute: (context) => const PendingApprovalPage(),
+      '/mentorHome': (context) => const HomePageMentor(),
     };
   }
 }
