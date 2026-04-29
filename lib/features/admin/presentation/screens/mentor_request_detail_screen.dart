@@ -17,13 +17,15 @@ class MentorRequestDetailScreen extends StatelessWidget {
     
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isApprove ? 'Approve Mentor' : 'Reject Mentor'),
-        content: Text(
-          isApprove 
-            ? 'Are you sure you want to approve ${application.name} as a mentor?'
-            : 'Are you sure you want to reject ${application.name}\'s application?'
-        ),
+      builder: (ctx) {
+        final roleName = application.role.toUpperCase() == 'STUDENT' ? 'Student' : 'Mentor';
+        return AlertDialog(
+          title: Text(isApprove ? 'Approve $roleName' : 'Reject $roleName'),
+          content: Text(
+            isApprove 
+              ? 'Are you sure you want to approve ${application.name} as a $roleName?'
+              : 'Are you sure you want to reject ${application.name}\'s application?'
+          ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -63,9 +65,10 @@ class MentorRequestDetailScreen extends StatelessWidget {
                     SnackBar(content: Text(provider.error!), backgroundColor: Colors.red),
                   );
                 } else {
+                  final roleName = application.role.toUpperCase() == 'STUDENT' ? 'Student' : 'Mentor';
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(isApprove ? 'Mentor approved successfully.' : 'Application rejected.'),
+                      content: Text(isApprove ? '$roleName approved successfully.' : 'Application rejected.'),
                       backgroundColor: isApprove ? Colors.green : Colors.grey.shade800,
                     ),
                   );
@@ -76,9 +79,10 @@ class MentorRequestDetailScreen extends StatelessWidget {
             child: Text(isApprove ? 'Approve' : 'Reject'),
           ),
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {

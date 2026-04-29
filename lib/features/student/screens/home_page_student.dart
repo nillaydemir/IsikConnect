@@ -226,10 +226,10 @@ class _MyMentorTabState extends State<_MyMentorTab> {
   @override
   void initState() {
     super.initState();
-    _loadCurrentStudent();
+    _loadCurrentStudentAndMatch();
   }
 
-  void _loadCurrentStudent() {
+  Future<void> _loadCurrentStudentAndMatch() async {
     final user = CurrentSession().user;
     if (user != null) {
       _currentStudent = Student(
@@ -239,7 +239,54 @@ class _MyMentorTabState extends State<_MyMentorTab> {
         department: user.department ?? '',
         classLevel: user.classLevel ?? '',
         requestedTopics: user.interests ?? [],
+        availableDays: user.availableDays ?? [],
       );
+      
+      // Fetch persistent match from database
+      await _fetchExistingMatch();
+    }
+  }
+
+  Future<void> _fetchExistingMatch() async {
+    if (_currentStudent == null) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await Supabase.instance.client
+          .from('students')
+          .select('matched_mentor_id, mentors(*, users(*))')
+          .eq('id', _currentStudent!.id)
+          .maybeSingle();
+
+      if (response != null && response['mentors'] != null) {
+        final mentorData = response['mentors'];
+        final userData = mentorData['users'];
+        
+        _matchedMentor = Mentor(
+          id: mentorData['id'],
+          name: '${userData['first_name']} ${userData['last_name']}',
+          email: userData['email'],
+          department: userData['department'] ?? '',
+          graduationYear: mentorData['graduation_year']?.toString() ?? '',
+          skills: List<String>.from(mentorData['interests'] ?? []),
+          company: mentorData['company'],
+          jobTitle: mentorData['job_title'],
+          maxCapacity: mentorData['max_students'] ?? 1,
+          currentStudentsCount: mentorData['current_student_count'] ?? 0,
+          availableDays: List<String>.from(mentorData['available_days'] ?? []),
+        );
+      }
+    } catch (e) {
+      print('Error fetching existing match: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -257,59 +304,64 @@ class _MyMentorTabState extends State<_MyMentorTab> {
     });
 
     try {
-      // 1. Fetch all users who are mentors and are approved
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('*, mentors(*)')
-          .eq('role', 'mentor')
-          .eq('is_approved', true);
-
-      List<Mentor> mentors = [];
-      for (var row in response) {
-        // Parse the nested mentors data. It might be a Map (1-to-1) or a List (1-to-many).
-        final mentorDataRaw = row['mentors'];
-        if (mentorDataRaw == null) continue;
-        
-        Map<String, dynamic> mentorData;
-        if (mentorDataRaw is List) {
-          if (mentorDataRaw.isEmpty) continue;
-          mentorData = mentorDataRaw.first;
-        } else {
-          mentorData = mentorDataRaw as Map<String, dynamic>;
-        }
-
-        List<String> skills = [];
-        if (mentorData['interests'] != null) {
-          skills = List<String>.from(mentorData['interests']);
-        }
-
-        mentors.add(Mentor(
-          id: row['id'],
-          name: '${row['first_name']} ${row['last_name']}',
-          email: row['email'],
-          department: mentorData['department'] ?? '',
-          graduationYear: mentorData['graduation_year']?.toString() ?? '',
-          skills: skills,
-          company: mentorData['company'],
-          jobTitle: mentorData['job_title'],
-          maxCapacity: mentorData['max_students'] ?? 1,
-        ));
-      }
-
       final matchingService = MatchingService();
-      final results = matchingService.assignMentors([_currentStudent!], mentors);
+      final bestMentor = await matchingService.findAndSaveMatch(_currentStudent!);
 
       setState(() {
-        _matchedMentor = results[_currentStudent!];
+        _matchedMentor = bestMentor;
         if (_matchedMentor == null) {
-          _errorMessage = "No suitable mentor found right now. Please try again later or update your interests.";
+          _errorMessage = "No suitable mentor found right now. Please check your interests or available days and try again later.";
         }
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error fetching mentors: $e';
+        _errorMessage = 'Error finding mentor: $e';
       });
       print('Matching error: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _cancelMatch() async {
+    if (_currentStudent == null || _matchedMentor == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Match'),
+        content: Text('Are you sure you want to end your mentorship with ${_matchedMentor!.name}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('End Match'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final matchingService = MatchingService();
+      await matchingService.cancelMatch(_currentStudent!.id, _matchedMentor!.id);
+      
+      setState(() {
+        _matchedMentor = null;
+        _errorMessage = "Match cancelled successfully.";
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error cancelling match: $e';
+      });
     } finally {
       setState(() {
         _isLoading = false;
@@ -486,18 +538,15 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.message),
-                      label: const Text('Message Mentor'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color.fromARGB(255, 38, 55, 140),
-                        side: const BorderSide(
-                          color: Color.fromARGB(255, 38, 55, 140),
-                        ),
+                    child: TextButton.icon(
+                      onPressed: _cancelMatch,
+                      icon: const Icon(Icons.person_remove_outlined),
+                      label: const Text('Cancel Match'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),

@@ -7,7 +7,7 @@ const listPendingApplications = async (req, res) => {
       .select(`
         *,
         users (
-          first_name, last_name, email, phone
+          first_name, last_name, email, phone, department
         )
       `)
       .eq('status', 'pending');
@@ -17,11 +17,11 @@ const listPendingApplications = async (req, res) => {
     let enrichedData = [];
     for (const app of data) {
       if (app.role === 'student') {
-        const { data: student } = await supabase.from('students').select('department, class_level').eq('id', app.user_id).single();
-        enrichedData.push({ ...app, specific: student });
+        const { data: student } = await supabase.from('students').select('class_level').eq('id', app.user_id).single();
+        enrichedData.push({ ...app, specific: { ...student, department: app.users.department } });
       } else if (app.role === 'mentor') {
         const { data: mentor } = await supabase.from('mentors').select('company, job_title').eq('id', app.user_id).single();
-        enrichedData.push({ ...app, specific: mentor });
+        enrichedData.push({ ...app, specific: { ...mentor, department: app.users.department } });
       } else {
         enrichedData.push({ ...app });
       }
