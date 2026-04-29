@@ -87,6 +87,7 @@ const registerStudent = async (req, res) => {
         email,
         role: 'student',
         phone,
+        department,
         is_approved: false
       }]);
 
@@ -101,7 +102,6 @@ const registerStudent = async (req, res) => {
       .insert([{
         id: userId,
         student_document_url: student_doc_url,
-        department,
         class_level,
         interests,
         available_days,
