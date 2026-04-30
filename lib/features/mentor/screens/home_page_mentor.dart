@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/current_session.dart';
+import '../../profile/screens/profile_page.dart';
 
 class HomePageMentor extends StatefulWidget {
   const HomePageMentor({super.key});
@@ -16,7 +17,7 @@ class _HomePageMentorState extends State<HomePageMentor> {
     _HomeTab(),
     _PlaceholderTab(title: 'Available Workshops'),
     _PlaceholderTab(title: 'Mentor & Student Chat'),
-    _ProfileTab(),
+    ProfilePage(),
   ];
 
   void _onItemTapped(int index) {
@@ -326,79 +327,6 @@ class _PlaceholderTab extends StatelessWidget {
             )
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ProfileTab extends StatelessWidget {
-  const _ProfileTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mentor Profile',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.1),
-                        child: const Icon(Icons.person, size: 36, color: Color.fromARGB(255, 38, 55, 140)),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Mentor Name',
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              'Approved Mentor',
-                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    leading: const Icon(Icons.settings),
-                    title: const Text('Account Settings'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {},
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.help_outline),
-                    title: const Text('Help & Support'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {},
-                  ),
-                ],
-              ),
-            ),
-          )
-        ],
       ),
     );
   }

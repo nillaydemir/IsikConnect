@@ -129,20 +129,35 @@ class ApiService {
     );
   }
 
-  Future<String?> uploadDocument(File file) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/mentor/upload-doc'));
-    request.files.add(await http.MultipartFile.fromPath('document', file.path));
+  Future<Map<String, dynamic>> updateProfile(String userId, Map<String, dynamic> data) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/profile/$userId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(data),
+    );
+    return jsonDecode(response.body);
+  }
+
+  Future<Map<String, dynamic>> uploadProfileImage(String userId, dynamic file) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/profile/$userId/image'));
     
-    final response = await request.send();
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final responseBody = await response.stream.bytesToString();
-      try {
-        final data = jsonDecode(responseBody);
-        return data['url'];
-      } catch (_) {
-        return null;
+    if (file is File) {
+      request.files.add(await http.MultipartFile.fromPath('image', file.path));
+    } else {
+      final platformFile = file;
+      if (platformFile.path != null) {
+        request.files.add(await http.MultipartFile.fromPath('image', platformFile.path!));
+      } else if (platformFile.bytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'image',
+          platformFile.bytes!,
+          filename: platformFile.name,
+        ));
       }
     }
-    return null;
+
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
+    return jsonDecode(responseBody);
   }
 }
