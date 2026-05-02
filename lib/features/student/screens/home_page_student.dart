@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../profile/screens/profile_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:io';
 import '../../../core/models/user_models.dart';
 import '../../../core/services/matching_service.dart';
 import '../../../core/services/current_session.dart';
@@ -23,7 +21,7 @@ class _HomePageStudentState extends State<HomePageStudent> {
     _MyMentorTab(),
     _PlaceholderTab(title: 'Available workshops'),
     _PlaceholderTab(title: 'Community discussions'),
-    _ProfileTab(),
+    ProfilePage(),
   ];
 
   void _onItemTapped(int index) {
@@ -226,10 +224,10 @@ class _MyMentorTabState extends State<_MyMentorTab> {
   @override
   void initState() {
     super.initState();
-    _loadCurrentStudent();
+    _loadCurrentStudentAndMatch();
   }
 
-  void _loadCurrentStudent() {
+  Future<void> _loadCurrentStudentAndMatch() async {
     final user = CurrentSession().user;
     if (user != null) {
       _currentStudent = Student(
@@ -239,7 +237,54 @@ class _MyMentorTabState extends State<_MyMentorTab> {
         department: user.department ?? '',
         classLevel: user.classLevel ?? '',
         requestedTopics: user.interests ?? [],
+        availableDays: user.availableDays ?? [],
       );
+      
+      // Fetch persistent match from database
+      await _fetchExistingMatch();
+    }
+  }
+
+  Future<void> _fetchExistingMatch() async {
+    if (_currentStudent == null) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await Supabase.instance.client
+          .from('students')
+          .select('matched_mentor_id, mentors(*, users(*))')
+          .eq('id', _currentStudent!.id)
+          .maybeSingle();
+
+      if (response != null && response['mentors'] != null) {
+        final mentorData = response['mentors'];
+        final userData = mentorData['users'];
+        
+        _matchedMentor = Mentor(
+          id: mentorData['id'],
+          name: '${userData['first_name']} ${userData['last_name']}',
+          email: userData['email'],
+          department: userData['department'] ?? '',
+          graduationYear: mentorData['graduation_year']?.toString() ?? '',
+          skills: List<String>.from(mentorData['interests'] ?? []),
+          company: mentorData['company'],
+          jobTitle: mentorData['job_title'],
+          maxCapacity: mentorData['max_students'] ?? 1,
+          currentStudentsCount: mentorData['current_student_count'] ?? 0,
+          availableDays: List<String>.from(mentorData['available_days'] ?? []),
+        );
+      }
+    } catch (e) {
+      print('Error fetching existing match: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -257,59 +302,64 @@ class _MyMentorTabState extends State<_MyMentorTab> {
     });
 
     try {
-      // 1. Fetch all users who are mentors and are approved
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('*, mentors(*)')
-          .eq('role', 'mentor')
-          .eq('is_approved', true);
-
-      List<Mentor> mentors = [];
-      for (var row in response) {
-        // Parse the nested mentors data. It might be a Map (1-to-1) or a List (1-to-many).
-        final mentorDataRaw = row['mentors'];
-        if (mentorDataRaw == null) continue;
-        
-        Map<String, dynamic> mentorData;
-        if (mentorDataRaw is List) {
-          if (mentorDataRaw.isEmpty) continue;
-          mentorData = mentorDataRaw.first;
-        } else {
-          mentorData = mentorDataRaw as Map<String, dynamic>;
-        }
-
-        List<String> skills = [];
-        if (mentorData['interests'] != null) {
-          skills = List<String>.from(mentorData['interests']);
-        }
-
-        mentors.add(Mentor(
-          id: row['id'],
-          name: '${row['first_name']} ${row['last_name']}',
-          email: row['email'],
-          department: mentorData['department'] ?? '',
-          graduationYear: mentorData['graduation_year']?.toString() ?? '',
-          skills: skills,
-          company: mentorData['company'],
-          jobTitle: mentorData['job_title'],
-          maxCapacity: mentorData['max_students'] ?? 1,
-        ));
-      }
-
       final matchingService = MatchingService();
-      final results = matchingService.assignMentors([_currentStudent!], mentors);
+      final bestMentor = await matchingService.findAndSaveMatch(_currentStudent!);
 
       setState(() {
-        _matchedMentor = results[_currentStudent!];
+        _matchedMentor = bestMentor;
         if (_matchedMentor == null) {
-          _errorMessage = "No suitable mentor found right now. Please try again later or update your interests.";
+          _errorMessage = "No suitable mentor found right now. Please check your interests or available days and try again later.";
         }
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error fetching mentors: $e';
+        _errorMessage = 'Error finding mentor: $e';
       });
       print('Matching error: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _cancelMatch() async {
+    if (_currentStudent == null || _matchedMentor == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Match'),
+        content: Text('Are you sure you want to end your mentorship with ${_matchedMentor!.name}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('End Match'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final matchingService = MatchingService();
+      await matchingService.cancelMatch(_currentStudent!.id, _matchedMentor!.id);
+      
+      setState(() {
+        _matchedMentor = null;
+        _errorMessage = "Match cancelled successfully.";
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error cancelling match: $e';
+      });
     } finally {
       setState(() {
         _isLoading = false;
@@ -486,18 +536,15 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.message),
-                      label: const Text('Message Mentor'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color.fromARGB(255, 38, 55, 140),
-                        side: const BorderSide(
-                          color: Color.fromARGB(255, 38, 55, 140),
-                        ),
+                    child: TextButton.icon(
+                      onPressed: _cancelMatch,
+                      icon: const Icon(Icons.person_remove_outlined),
+                      label: const Text('Cancel Match'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
@@ -528,134 +575,4 @@ class _MyMentorTabState extends State<_MyMentorTab> {
   }
 }
 
-class _ProfileTab extends StatefulWidget {
-  const _ProfileTab();
-
-  @override
-  State<_ProfileTab> createState() => _ProfileTabState();
-}
-
-class _ProfileTabState extends State<_ProfileTab> {
-  bool _isUploading = false;
-  String? _uploadStatus;
-
-  Future<void> _uploadDocument() async {
-    try {
-      if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
-        // Handle desktop specific logic if needed or just proceed
-      }
-
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final pickedFile = result.files.first;
-        if (pickedFile.path == null) throw 'File path is null';
-
-        setState(() {
-          _isUploading = true;
-          _uploadStatus = 'Uploading document...';
-        });
-
-        File file = File(pickedFile.path!);
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
-        
-        // Ensure you have a 'documents' bucket in Supabase
-        await Supabase.instance.client.storage
-            .from('documents')
-            .upload(fileName, file);
-
-        final documentUrl = Supabase.instance.client.storage
-            .from('documents')
-            .getPublicUrl(fileName);
-
-        // Assume the user is logged in, use their real ID or a dummy UUID for now
-        final dummyUserId = Supabase.instance.client.auth.currentUser?.id ?? '00000000-0000-0000-0000-000000000000';
-
-        await Supabase.instance.client.from('applications').insert({
-          'user_id': dummyUserId,
-          'role': 'student',
-          'document_url': documentUrl,
-          'status': 'pending',
-        });
-
-        setState(() {
-          _isUploading = false;
-          _uploadStatus = 'Document uploaded successfully! Application pending.';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _isUploading = false;
-        _uploadStatus = 'Error uploading: $e';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'User Profile',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Student Verification',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'To access all features and get matched with mentors, please upload your student certificate (Öğrenci Belgesi).',
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 20),
-                  if (_uploadStatus != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: Text(
-                        _uploadStatus!,
-                        style: TextStyle(
-                            color: _uploadStatus!.contains('Error') ? Colors.red : Colors.green,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isUploading ? null : _uploadDocument,
-                      icon: _isUploading 
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                          : const Icon(Icons.upload_file),
-                      label: Text(_isUploading ? 'Uploading...' : 'Upload Öğrenci Belgesi'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color.fromARGB(255, 38, 55, 140),
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-}
 

@@ -14,6 +14,7 @@ class Student extends User {
   final String department;
   final String classLevel;
   final List<String> requestedTopics;
+  final List<String> availableDays;
   Mentor? assignedMentor;
 
   Student({
@@ -23,6 +24,7 @@ class Student extends User {
     required this.department,
     required this.classLevel,
     required this.requestedTopics,
+    this.availableDays = const [],
     this.assignedMentor,
   });
 }
@@ -35,6 +37,7 @@ class Mentor extends User {
   final int maxCapacity;
   int currentStudentsCount;
   final List<String> skills;
+  final List<String> availableDays;
 
   Mentor({
     required super.id,
@@ -45,6 +48,7 @@ class Mentor extends User {
     this.company,
     this.jobTitle,
     required this.skills,
+    this.availableDays = const [],
     this.maxCapacity = 3,
     this.currentStudentsCount = 0,
   });

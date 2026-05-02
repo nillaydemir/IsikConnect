@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/services/current_session.dart';
+import '../../profile/screens/profile_page.dart';
 
 class HomePageMentor extends StatefulWidget {
   const HomePageMentor({super.key});
@@ -14,7 +17,7 @@ class _HomePageMentorState extends State<HomePageMentor> {
     _HomeTab(),
     _PlaceholderTab(title: 'Available Workshops'),
     _PlaceholderTab(title: 'Mentor & Student Chat'),
-    _ProfileTab(),
+    ProfilePage(),
   ];
 
   void _onItemTapped(int index) {
@@ -84,8 +87,52 @@ class _HomePageMentorState extends State<HomePageMentor> {
 }
 
 // Reusable tab for Home body
-class _HomeTab extends StatelessWidget {
+
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  List<Map<String, dynamic>> _mentees = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMentees();
+  }
+
+  Future<void> _fetchMentees() async {
+    final mentorId = CurrentSession().user?.id;
+    if (mentorId == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get students matched with this mentor
+      final response = await Supabase.instance.client
+          .from('students')
+          .select('*, users(*)')
+          .eq('matched_mentor_id', mentorId);
+
+      setState(() {
+        _mentees = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      print('Error fetching mentees: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,15 +151,97 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          _buildCardSection('My Mentees (Students)', Icons.people),
+          _buildMenteesSection(),
           const SizedBox(height: 24),
-          _buildCardSection('Upcoming Sessions', Icons.event_available),
+          _buildCardSection('Upcoming Sessions', Icons.event_available, []),
         ],
       ),
     );
   }
 
-  Widget _buildCardSection(String title, IconData icon) {
+  Widget _buildMenteesSection() {
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.people,
+                    color: Color.fromARGB(255, 38, 55, 140),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'My Mentees (Students)',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                if (_isLoading)
+                  const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            if (_mentees.isEmpty && !_isLoading)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: const Center(
+                  child: Text(
+                    'No mentees assigned yet.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _mentees.length,
+                separatorBuilder: (context, index) => const Divider(),
+                itemBuilder: (context, index) {
+                  final mentee = _mentees[index];
+                  final userData = mentee['users'];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.1),
+                      child: Text(userData['first_name']?[0] ?? 'S'),
+                    ),
+                    title: Text('${userData['first_name']} ${userData['last_name']}'),
+                    subtitle: Text('${userData['department']} - ${mentee['class_level']}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      onPressed: () {},
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardSection(String title, IconData icon, List<dynamic> items) {
     return Card(
       elevation: 2,
       shadowColor: Colors.black12,
@@ -155,7 +284,7 @@ class _HomeTab extends StatelessWidget {
               ),
               child: const Center(
                 child: Text(
-                  'No items to show at the moment.',
+                  'No sessions to show.',
                   style: TextStyle(color: Colors.grey),
                 ),
               ),
@@ -198,79 +327,6 @@ class _PlaceholderTab extends StatelessWidget {
             )
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ProfileTab extends StatelessWidget {
-  const _ProfileTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mentor Profile',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.1),
-                        child: const Icon(Icons.person, size: 36, color: Color.fromARGB(255, 38, 55, 140)),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Mentor Name',
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              'Approved Mentor',
-                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    leading: const Icon(Icons.settings),
-                    title: const Text('Account Settings'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {},
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.help_outline),
-                    title: const Text('Help & Support'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {},
-                  ),
-                ],
-              ),
-            ),
-          )
-        ],
       ),
     );
   }
