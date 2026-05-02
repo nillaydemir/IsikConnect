@@ -1,17 +1,18 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class ApiService {
   final String baseUrl;
 
-  ApiService({String? baseUrl}) : baseUrl = baseUrl ?? (Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000');
+  ApiService({String? baseUrl}) : baseUrl = baseUrl ?? (kIsWeb ? 'http://localhost:3000' : (Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000'));
 
   Future<Map<String, dynamic>> registerMentor(Map<String, dynamic> data, dynamic file) async {
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/mentor/register'));
     
     // Add file
-    if (file is File) {
+    if (!kIsWeb && file is File) {
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
     } else {
       // Handle PlatformFile from file_picker
@@ -21,7 +22,7 @@ class ApiService {
       print('Path: ${platformFile.path}');
       print('Bytes: ${platformFile.bytes?.length}');
 
-      if (platformFile.path != null) {
+      if (!kIsWeb && platformFile.path != null) {
         // Mobile / Local path available
         request.files.add(await http.MultipartFile.fromPath('file', platformFile.path!));
       } else if (platformFile.bytes != null) {
@@ -58,11 +59,11 @@ class ApiService {
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/student/register'));
     
     // Add file
-    if (file is File) {
+    if (!kIsWeb && file is File) {
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
     } else {
       final platformFile = file;
-      if (platformFile.path != null) {
+      if (!kIsWeb && platformFile.path != null) {
         request.files.add(await http.MultipartFile.fromPath('file', platformFile.path!));
       } else if (platformFile.bytes != null) {
         request.files.add(http.MultipartFile.fromBytes(
