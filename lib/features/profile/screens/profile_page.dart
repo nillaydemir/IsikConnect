@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/api_service.dart';
@@ -23,6 +24,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _companyController = TextEditingController();
   final TextEditingController _jobTitleController = TextEditingController();
   List<String> _selectedDays = [];
+  List<String> _selectedInterests = [];
+  final TextEditingController _customInterestController = TextEditingController();
+  Map<String, List<String>> _departmentInterests = {};
 
   final List<String> _allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -31,6 +35,31 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     _user = CurrentSession().user!;
     _resetControllers();
+    _fetchDepartmentsAndInterests();
+  }
+
+  Future<void> _fetchDepartmentsAndInterests() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('departments')
+          .select('name, interests(name)');
+      
+      final Map<String, List<String>> fetchedData = {};
+      for (var dept in response) {
+        final deptName = dept['name'] as String;
+        final interestsList = (dept['interests'] as List)
+            .map((i) => i['name'] as String)
+            .toList();
+        fetchedData[deptName] = interestsList;
+      }
+      if (mounted) {
+        setState(() {
+          _departmentInterests = fetchedData;
+        });
+      }
+    } catch (e) {
+      print('Error fetching departments: $e');
+    }
   }
 
   void _resetControllers() {
@@ -41,6 +70,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _companyController.text = _user.company ?? '';
     _jobTitleController.text = _user.jobTitle ?? '';
     _selectedDays = List<String>.from(_user.availableDays ?? []);
+    _selectedInterests = List<String>.from(_user.interests ?? []);
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -113,6 +143,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'company': _companyController.text.trim(),
         'jobTitle': _jobTitleController.text.trim(),
         'availableDays': _selectedDays,
+        'interests': _selectedInterests,
       });
 
       if (response['user'] != null) {
@@ -329,6 +360,8 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
           const Divider(height: 32),
           _buildDaysSection(primaryColor),
+          const Divider(height: 32),
+          _buildInterestsSection(primaryColor),
         ],
       ),
     );
@@ -389,6 +422,139 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Text(day, style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.w600)),
                 )).toList(),
           ),
+      ],
+    );
+  }
+
+  Widget _buildInterestsSection(Color primaryColor) {
+    final currentDept = _departmentController.text.trim();
+    String? matchedDept;
+    for (var key in _departmentInterests.keys) {
+      if (key.toLowerCase() == currentDept.toLowerCase()) {
+        matchedDept = key;
+        break;
+      }
+    }
+    
+    final availableInterests = matchedDept != null ? _departmentInterests[matchedDept]! : <String>[];
+    final Set<String> displayInterests = _isEditing 
+        ? {...availableInterests, ..._selectedInterests}
+        : _selectedInterests.toSet();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.star_outline, size: 20, color: primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              'Interests & Skills',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: displayInterests.isEmpty && !_isEditing
+            ? [Text('No interests specified', style: TextStyle(color: Colors.grey[400], fontSize: 14))]
+            : displayInterests.map((interest) {
+                final isSelected = _selectedInterests.contains(interest);
+                return _isEditing 
+                  ? FilterChip(
+                      label: Text(interest, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
+                      selected: isSelected,
+                      onSelected: (bool selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedInterests.add(interest);
+                          } else {
+                            _selectedInterests.remove(interest);
+                          }
+                        });
+                      },
+                      selectedColor: primaryColor,
+                      checkmarkColor: Colors.white,
+                      backgroundColor: Colors.grey[100],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: isSelected ? primaryColor : Colors.grey.shade300,
+                        ),
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(interest, style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                    );
+              }).toList(),
+        ),
+        if (_isEditing) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _customInterestController,
+                  decoration: const InputDecoration(
+                    labelText: 'Add Interest/Skill',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    fillColor: Colors.white,
+                    filled: true,
+                    isDense: true,
+                  ),
+                  onSubmitted: (value) {
+                    final text = value.trim();
+                    if (text.isNotEmpty) {
+                      final isDuplicate = _selectedInterests.any((i) => i.toLowerCase() == text.toLowerCase());
+                      if (!isDuplicate) {
+                        setState(() {
+                          _selectedInterests.add(text);
+                          _customInterestController.clear();
+                        });
+                      } else {
+                        _customInterestController.clear();
+                      }
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  final text = _customInterestController.text.trim();
+                  if (text.isNotEmpty) {
+                    final isDuplicate = _selectedInterests.any((i) => i.toLowerCase() == text.toLowerCase());
+                    if (!isDuplicate) {
+                      setState(() {
+                        _selectedInterests.add(text);
+                        _customInterestController.clear();
+                      });
+                    } else {
+                      _customInterestController.clear();
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+        ]
       ],
     );
   }

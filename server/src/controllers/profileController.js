@@ -5,7 +5,7 @@ const supabase = require('../config/supabase');
  */
 const updateProfile = async (req, res) => {
   const { userId } = req.params;
-  const { firstName, lastName, phone, department, bio, company, jobTitle, availableDays } = req.body;
+  const { firstName, lastName, phone, department, bio, company, jobTitle, availableDays, interests } = req.body;
 
   try {
     // 1. Get user role first
@@ -38,7 +38,8 @@ const updateProfile = async (req, res) => {
         .update({
           company,
           job_title: jobTitle,
-          available_days: availableDays
+          available_days: availableDays,
+          interests
         })
         .eq('user_id', userId);
       if (mentorError) throw mentorError;
@@ -46,7 +47,8 @@ const updateProfile = async (req, res) => {
       const { error: studentError } = await supabase
         .from('students')
         .update({
-          available_days: availableDays
+          available_days: availableDays,
+          interests
         })
         .eq('user_id', userId);
       if (studentError) throw studentError;
