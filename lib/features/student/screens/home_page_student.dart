@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../profile/screens/profile_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:io';
 import '../../../core/models/user_models.dart';
+import '../../../core/models/app_user_model.dart';
 import '../../../core/services/matching_service.dart';
 import '../../../core/services/current_session.dart';
+import '../../shared/screens/chat_screen.dart';
+import '../../shared/screens/forum_screen.dart';
+import '../../shared/screens/meetings_screen.dart';
 
 class HomePageStudent extends StatefulWidget {
   const HomePageStudent({super.key});
@@ -17,13 +19,12 @@ class HomePageStudent extends StatefulWidget {
 class _HomePageStudentState extends State<HomePageStudent> {
   int _selectedIndex = 0;
 
-  // The 5 tab pages using IndexedStack to preserve state
   final List<Widget> _pages = const [
     _HomeTab(),
-    _MyMentorTab(),
-    _PlaceholderTab(title: 'Available workshops'),
-    _PlaceholderTab(title: 'Community discussions'),
-    _ProfileTab(),
+    ChatScreen(),
+    ForumScreen(),
+    MeetingsScreen(),
+    ProfilePage(),
   ];
 
   void _onItemTapped(int index) {
@@ -71,7 +72,7 @@ class _HomePageStudentState extends State<HomePageStudent> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black,
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -80,23 +81,19 @@ class _HomePageStudentState extends State<HomePageStudent> {
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed, // Needed when items > 3
+          type: BottomNavigationBarType.fixed,
           selectedItemColor: primaryColor,
-          unselectedItemColor: Colors.grey,
+          unselectedItemColor: Colors.grey.shade400,
           backgroundColor: Colors.white,
           elevation: 0,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people),
-              label: 'My Mentor',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.event),
-              label: 'Workshops',
-            ),
-            BottomNavigationBarItem(icon: Icon(Icons.forum), label: 'Forum'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+            BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_rounded), label: 'Chat'),
+            BottomNavigationBarItem(icon: Icon(Icons.forum_rounded), label: 'Forum'),
+            BottomNavigationBarItem(icon: Icon(Icons.videocam_rounded), label: 'Meetings'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
           ],
         ),
       ),
@@ -104,107 +101,140 @@ class _HomePageStudentState extends State<HomePageStudent> {
   }
 }
 
-// Reusable tab for Home body
 class _HomeTab extends StatelessWidget {
   const _HomeTab();
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
-          const Text(
-            'Welcome to Işık Connect',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Good Morning,',
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  Text(
+                    'Student',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                ],
+              ),
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.grey.shade200,
+                child: const Icon(Icons.person, color: Colors.grey),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-          _buildCardSection('Upcoming Workshops', Icons.event_available),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardSection(String title, IconData icon) {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            Row(
+          const SizedBox(height: 32),
+          
+          // Next Session Card
+          const Text('Next Session', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color.fromARGB(255, 38, 55, 140), Color.fromARGB(255, 60, 80, 180)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(color: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 38, 55, 140),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    icon,
-                    color: const Color.fromARGB(255, 38, 55, 140),
-                  ),
+                  child: const Text('1-on-1 Mentorship', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                const SizedBox(height: 16),
+                const Text('Career Guidance & Portfolio Review', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.access_time_rounded, color: Colors.white70, size: 16),
+                    const SizedBox(width: 8),
+                    const Text('Today, 2:00 PM', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    const Spacer(),
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Colors.white,
+                      child: Text('M', style: TextStyle(color: Colors.blue.shade900, fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: const Center(
-                child: Text(
-                  'No items to show at the moment.',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Reusable placeholder component for other tabs
-class _PlaceholderTab extends StatelessWidget {
-  final String title;
-  const _PlaceholderTab({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            color: Colors.grey,
-            fontWeight: FontWeight.w500,
           ),
-          textAlign: TextAlign.center,
-        ),
+          const SizedBox(height: 32),
+          
+          // My Mentor Section embedded
+          const Text('My Mentor', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          const SizedBox(
+            height: 400, // Constrain height for the embedded widget
+            child: _MyMentorTab(),
+          ),
+          
+          const SizedBox(height: 32),
+          const Text('Recommended Workshops', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 160,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: 3,
+              itemBuilder: (context, index) {
+                return Container(
+                  width: 240,
+                  margin: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey.shade200),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.lightbulb_outline, color: Colors.orange.shade700, size: 20),
+                      ),
+                      const Spacer(),
+                      const Text('Flutter State Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 4),
+                      Text('Tomorrow, 5:00 PM', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -264,9 +294,28 @@ class _MyMentorTabState extends State<_MyMentorTab> {
       if (response != null && response['mentors'] != null) {
         final mentorData = response['mentors'];
         final userData = mentorData['users'];
-        
+        final mentorId = mentorData['id'];
+
+        // Fetch ratings separately to bypass missing FK relationship
+        double avgRating = 0.0;
+        int reviewCount = 0;
+        try {
+          final reviewsRes = await Supabase.instance.client
+              .from('reviews')
+              .select('rating')
+              .eq('mentor_id', mentorId);
+          
+          if (reviewsRes.isNotEmpty) {
+            final sum = reviewsRes.fold<num>(0, (prev, r) => prev + (r['rating'] as num));
+            avgRating = sum / reviewsRes.length;
+            reviewCount = reviewsRes.length;
+          }
+        } catch (e) {
+          print('Warning: Could not fetch reviews for mentor: $e');
+        }
+
         _matchedMentor = Mentor(
-          id: mentorData['id'],
+          id: mentorId,
           name: '${userData['first_name']} ${userData['last_name']}',
           email: userData['email'],
           department: userData['department'] ?? '',
@@ -277,6 +326,8 @@ class _MyMentorTabState extends State<_MyMentorTab> {
           maxCapacity: mentorData['max_students'] ?? 1,
           currentStudentsCount: mentorData['current_student_count'] ?? 0,
           availableDays: List<String>.from(mentorData['available_days'] ?? []),
+          avgRating: avgRating,
+          reviewCount: reviewCount,
         );
       }
     } catch (e) {
@@ -288,6 +339,103 @@ class _MyMentorTabState extends State<_MyMentorTab> {
         });
       }
     }
+  }
+
+  void _showRatingDialog() {
+    if (_matchedMentor == null) return;
+
+    int selectedRating = 5;
+    final TextEditingController commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Text('Rate Your Mentor', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('How was your experience with ${_matchedMentor!.name}?', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Icon(
+                      index < selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: Colors.amber,
+                      size: 40,
+                    ),
+                    onPressed: () {
+                      setDialogState(() {
+                        selectedRating = index + 1;
+                      });
+                    },
+                  );
+                }),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: commentController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Share your feedback (optional)',
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final studentId = CurrentSession().user?.id;
+                if (studentId == null) return;
+
+                try {
+                  await Supabase.instance.client.from('reviews').insert({
+                    'mentor_id': _matchedMentor!.id,
+                    'student_id': studentId,
+                    'rating': selectedRating,
+                    'comment': commentController.text.trim(),
+                  });
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Thank you for your feedback!'), backgroundColor: Colors.green),
+                    );
+                    _fetchExistingMatch(); // Refresh to update rating in UI
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error saving review: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 38, 55, 140),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _runMatching() async {
@@ -435,64 +583,96 @@ class _MyMentorTabState extends State<_MyMentorTab> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Your Assigned Mentor',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
           Card(
-            elevation: 4,
+            elevation: 0,
+            color: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: Colors.grey.shade200),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: const Color.fromARGB(
-                          255,
-                          38,
-                          55,
-                          140,
-                        ).withValues(alpha: 0.1),
-                        child: Text(
-                          _matchedMentor!.name.substring(0, 1),
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color.fromARGB(255, 38, 55, 140),
+                  InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProfilePage(
+                            targetUserId: _matchedMentor!.id,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _matchedMentor!.name,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: const Color.fromARGB(
+                            255,
+                            38,
+                            55,
+                            140,
+                          ).withValues(alpha: 0.1),
+                          child: Text(
+                            _matchedMentor!.name.substring(0, 1),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Color.fromARGB(255, 38, 55, 140),
                             ),
-                            Text(
-                              '${_matchedMentor!.jobTitle ?? 'Mentor'} at ${_matchedMentor!.company ?? ''}',
-                              style: TextStyle(color: Colors.grey.shade600),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _matchedMentor!.name,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '${_matchedMentor!.jobTitle ?? 'Mentor'} at ${_matchedMentor!.company ?? ''}',
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              if (_matchedMentor!.reviewCount > 0)
+                                Row(
+                                  children: [
+                                    const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _matchedMentor!.avgRating.toStringAsFixed(1),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    Text(
+                                      ' (${_matchedMentor!.reviewCount} reviews)',
+                                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                                    ),
+                                  ],
+                                )
+                              else
+                                Text(
+                                  'New Mentor',
+                                  style: TextStyle(color: Colors.blue.shade600, fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.grey),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   const Divider(),
@@ -538,18 +718,75 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton.icon(
-                      onPressed: _cancelMatch,
-                      icon: const Icon(Icons.person_remove_outlined),
-                      label: const Text('Cancel Match'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatDetailScreen(
+                                  targetUser: AppUser(
+                                    id: _matchedMentor!.id,
+                                    email: _matchedMentor!.email,
+                                    role: 'mentor',
+                                    name: _matchedMentor!.name,
+                                    createdAt: DateTime.now(),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                          label: const Text('Chat', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color.fromARGB(255, 38, 55, 140),
+                            side: const BorderSide(color: Color.fromARGB(255, 38, 55, 140)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _showRatingDialog,
+                          icon: const Icon(Icons.star_outline, size: 18),
+                          label: const Text('Rate', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.amber.shade800,
+                            side: BorderSide(color: Colors.amber.shade800),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProfilePage(
+                                  targetUserId: _matchedMentor!.id,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.person_outline, size: 18),
+                          label: const Text('Profile', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(255, 38, 55, 140),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -577,134 +814,4 @@ class _MyMentorTabState extends State<_MyMentorTab> {
   }
 }
 
-class _ProfileTab extends StatefulWidget {
-  const _ProfileTab();
-
-  @override
-  State<_ProfileTab> createState() => _ProfileTabState();
-}
-
-class _ProfileTabState extends State<_ProfileTab> {
-  bool _isUploading = false;
-  String? _uploadStatus;
-
-  Future<void> _uploadDocument() async {
-    try {
-      if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
-        // Handle desktop specific logic if needed or just proceed
-      }
-
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final pickedFile = result.files.first;
-        if (pickedFile.path == null) throw 'File path is null';
-
-        setState(() {
-          _isUploading = true;
-          _uploadStatus = 'Uploading document...';
-        });
-
-        File file = File(pickedFile.path!);
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
-        
-        // Ensure you have a 'documents' bucket in Supabase
-        await Supabase.instance.client.storage
-            .from('documents')
-            .upload(fileName, file);
-
-        final documentUrl = Supabase.instance.client.storage
-            .from('documents')
-            .getPublicUrl(fileName);
-
-        // Assume the user is logged in, use their real ID or a dummy UUID for now
-        final dummyUserId = Supabase.instance.client.auth.currentUser?.id ?? '00000000-0000-0000-0000-000000000000';
-
-        await Supabase.instance.client.from('applications').insert({
-          'user_id': dummyUserId,
-          'role': 'student',
-          'document_url': documentUrl,
-          'status': 'pending',
-        });
-
-        setState(() {
-          _isUploading = false;
-          _uploadStatus = 'Document uploaded successfully! Application pending.';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _isUploading = false;
-        _uploadStatus = 'Error uploading: $e';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'User Profile',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Student Verification',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'To access all features and get matched with mentors, please upload your student certificate (Öğrenci Belgesi).',
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 20),
-                  if (_uploadStatus != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: Text(
-                        _uploadStatus!,
-                        style: TextStyle(
-                            color: _uploadStatus!.contains('Error') ? Colors.red : Colors.green,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isUploading ? null : _uploadDocument,
-                      icon: _isUploading 
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                          : const Icon(Icons.upload_file),
-                      label: Text(_isUploading ? 'Uploading...' : 'Upload Öğrenci Belgesi'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color.fromARGB(255, 38, 55, 140),
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-}
 

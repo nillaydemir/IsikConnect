@@ -8,43 +8,62 @@ class MatchingService {
 
   /// Wraps the existing algorithm and handles persistence
   Future<Mentor?> findAndSaveMatch(Student student) async {
-    // 1. Pre-filtering: Filter mentors with capacity
+    // 1. Fetch mentors and user details
     final response = await _supabase
         .from('users')
         .select('*, mentors(*)')
         .eq('role', 'mentor')
         .eq('is_approved', true);
 
+    if (response.isEmpty) return null;
+
+    // 2. Fetch all reviews for these mentors in a separate call to bypass missing FK relationships
+    final mentorIds = response.map((r) => r['id'].toString()).toList();
+    List<dynamic> allReviews = [];
+    try {
+      allReviews = await _supabase
+          .from('reviews')
+          .select('mentor_id, rating')
+          .inFilter('mentor_id', mentorIds);
+    } catch (e) {
+      print('Warning: Could not fetch reviews (table may not exist or other error): $e');
+    }
+
+    // 3. Map reviews by mentor_id for easy lookup
+    final Map<String, List<int>> reviewsByMentor = {};
+    for (var rev in allReviews) {
+      final mid = rev['mentor_id'].toString();
+      final rating = (rev['rating'] as num).toInt();
+      reviewsByMentor.putIfAbsent(mid, () => []).add(rating);
+    }
+
     print('Matching Debug: Found ${response.length} approved mentors in database.');
 
     List<Mentor> mentors = [];
     for (var row in response) {
-      print('Processing Mentor Candidate: ${row['first_name']} ${row['last_name']} (ID: ${row['id']})');
-      
       final mentorDataRaw = row['mentors'];
-      if (mentorDataRaw == null) {
-        print('SKIP: Mentor details (mentors table) missing for this user.');
-        continue;
-      }
+      if (mentorDataRaw == null) continue;
       
       Map<String, dynamic> mentorData;
       if (mentorDataRaw is List) {
-        if (mentorDataRaw.isEmpty) {
-          print('SKIP: Mentor details list is empty.');
-          continue;
-        }
+        if (mentorDataRaw.isEmpty) continue;
         mentorData = mentorDataRaw.first;
       } else {
         mentorData = mentorDataRaw as Map<String, dynamic>;
       }
 
+      // Get ratings from our separate fetch
+      final mentorReviews = reviewsByMentor[row['id'].toString()] ?? [];
+      double avgRating = 0.0;
+      if (mentorReviews.isNotEmpty) {
+        avgRating = mentorReviews.reduce((a, b) => a + b) / mentorReviews.length;
+      }
+      int reviewCount = mentorReviews.length;
+
       // Skip if already full
       int currentCount = mentorData['current_student_count'] ?? 0;
       int maxCapacity = mentorData['max_students'] ?? 1;
-      if (currentCount >= maxCapacity) {
-        print('SKIP: Mentor is at full capacity ($currentCount/$maxCapacity).');
-        continue;
-      }
+      if (currentCount >= maxCapacity) continue;
 
       mentors.add(Mentor(
         id: row['id'],
@@ -58,8 +77,20 @@ class MatchingService {
         maxCapacity: maxCapacity,
         currentStudentsCount: currentCount,
         availableDays: List<String>.from(mentorData['available_days'] ?? []),
+        avgRating: avgRating,
+        reviewCount: reviewCount,
       ));
     }
+
+    // Sort mentors by rating (highest first), then by count, then nulls last (0 is lowest)
+    mentors.sort((a, b) {
+      // 1. Sort by Average Rating (Descending)
+      if (b.avgRating != a.avgRating) {
+        return b.avgRating.compareTo(a.avgRating);
+      }
+      // 2. Sort by Review Count (Descending)
+      return b.reviewCount.compareTo(a.reviewCount);
+    });
 
     print('Final list of mentors to pass to algorithm: ${mentors.length}');
     if (mentors.isEmpty) {

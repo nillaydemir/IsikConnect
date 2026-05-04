@@ -38,6 +38,8 @@ class Mentor extends User {
   int currentStudentsCount;
   final List<String> skills;
   final List<String> availableDays;
+  final double avgRating;
+  final int reviewCount;
 
   Mentor({
     required super.id,
@@ -51,6 +53,8 @@ class Mentor extends User {
     this.availableDays = const [],
     this.maxCapacity = 3,
     this.currentStudentsCount = 0,
+    this.avgRating = 0.0,
+    this.reviewCount = 0,
   });
 
   bool get isAvailable => currentStudentsCount < maxCapacity;

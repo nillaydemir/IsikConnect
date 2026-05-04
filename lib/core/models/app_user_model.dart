@@ -13,6 +13,8 @@ class AppUser {
   final String? graduationYear;
   final String? company;
   final String? jobTitle;
+  final String? bio;
+  final String? profileImageUrl;
   final int? maxStudents;
 
   AppUser({
@@ -30,6 +32,8 @@ class AppUser {
     this.graduationYear,
     this.company,
     this.jobTitle,
+    this.bio,
+    this.profileImageUrl,
     this.maxStudents,
   });
 
@@ -40,7 +44,10 @@ class AppUser {
       role: json['role'] as String,
       isApproved: json['is_approved'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
-      name: (json['name'] ?? json['full_name']) as String?,
+      name: json['name'] ?? json['full_name'] ?? 
+            (json['first_name'] != null && json['last_name'] != null 
+             ? '${json['first_name']} ${json['last_name']}' 
+             : json['first_name'] ?? json['last_name']),
       phone: json['phone'] as String?,
       availableDays: (json['available_days'] as List?)?.map((e) => e as String).toList(),
       department: json['department'] as String?,
@@ -49,6 +56,8 @@ class AppUser {
       graduationYear: json['graduation_year'] as String?,
       company: json['company'] as String?,
       jobTitle: json['job_title'] as String?,
+      bio: json['bio'] as String?,
+      profileImageUrl: json['profile_image_url'] as String?,
       maxStudents: json['max_students'] as int?,
     );
   }
@@ -69,6 +78,8 @@ class AppUser {
       if (graduationYear != null) 'graduation_year': graduationYear,
       if (company != null) 'company': company,
       if (jobTitle != null) 'job_title': jobTitle,
+      if (bio != null) 'bio': bio,
+      if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
       if (maxStudents != null) 'max_students': maxStudents,
     };
   }
