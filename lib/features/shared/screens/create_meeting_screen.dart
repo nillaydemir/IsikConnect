@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/meeting_service.dart';
 
 class CreateMeetingScreen extends StatefulWidget {
   const CreateMeetingScreen({super.key});
@@ -10,9 +11,91 @@ class CreateMeetingScreen extends StatefulWidget {
 class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   final _titleController = TextEditingController();
   final _capacityController = TextEditingController();
+  final _meetingService = MeetingService();
+  
   String _selectedType = '1-on-1';
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  
+  List<Map<String, dynamic>> _mentees = [];
+  String? _selectedMenteeId;
+  bool _isLoadingMentees = true;
+  bool _isCreating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMentees();
+  }
+
+  Future<void> _fetchMentees() async {
+    try {
+      final mentees = await _meetingService.getMentees();
+      setState(() {
+        _mentees = mentees;
+        if (_mentees.isNotEmpty) {
+          _selectedMenteeId = _mentees.first['id'];
+        }
+        _isLoadingMentees = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingMentees = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load mentees: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _createMeeting() async {
+    if (_titleController.text.isEmpty || _selectedDate == null || _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required fields')),
+      );
+      return;
+    }
+
+    if (_selectedType == '1-on-1' && _selectedMenteeId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a mentee for 1-on-1 meeting')),
+      );
+      return;
+    }
+
+    setState(() => _isCreating = true);
+
+    try {
+      int? capacity;
+      if (_selectedType == 'Workshop') {
+        capacity = int.tryParse(_capacityController.text) ?? 10;
+      }
+
+      await _meetingService.createMeeting(
+        title: _titleController.text.trim(),
+        type: _selectedType,
+        date: _selectedDate!,
+        time: _selectedTime!,
+        studentId: _selectedType == '1-on-1' ? _selectedMenteeId : null,
+        capacity: capacity,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Meeting created successfully!')),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create meeting: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCreating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +152,43 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
               ),
             ),
             const SizedBox(height: 20),
+
+            // Mentee Selection (If 1-on-1)
+            if (_selectedType == '1-on-1') ...[
+              _buildLabel('Select Mentee'),
+              const SizedBox(height: 8),
+              if (_isLoadingMentees)
+                const Center(child: CircularProgressIndicator())
+              else if (_mentees.isEmpty)
+                const Text('You have no active mentees. Matches required.', style: TextStyle(color: Colors.red))
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedMenteeId,
+                      isExpanded: true,
+                      items: _mentees.map((mentee) {
+                        return DropdownMenuItem<String>(
+                          value: mentee['id'],
+                          child: Text('${mentee['first_name']} ${mentee['last_name']}'),
+                        );
+                      }).toList(),
+                      onChanged: (newValue) {
+                        setState(() {
+                          _selectedMenteeId = newValue;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 20),
+            ],
             
             // Date & Time
             Row(
@@ -172,10 +292,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // Simulate creating
-                  Navigator.pop(context);
-                },
+                onPressed: _isCreating ? null : _createMeeting,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
@@ -183,7 +300,9 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 2,
                 ),
-                child: const Text('Create Meeting', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: _isCreating
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Create Meeting', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
