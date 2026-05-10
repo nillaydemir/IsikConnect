@@ -142,6 +142,7 @@ class _LoginPageState extends State<LoginPage> {
                         if (result['token'] != null) {
                           // Approved mentor
                           CurrentSession().user = AppUser.fromJson(userDoc);
+                          CurrentSession().token = result['token'];
                           Navigator.pushReplacementNamed(context, '/mentorHome');
                         } else if (result['status'] == 'pending') {
                           Navigator.pushNamed(context, '/pending');
@@ -175,6 +176,7 @@ class _LoginPageState extends State<LoginPage> {
                         if (result['token'] != null) {
                           // Approved student
                           CurrentSession().user = AppUser.fromJson(userDoc);
+                          CurrentSession().token = result['token'];
                           Navigator.pushReplacementNamed(context, '/studentHome');
                         } else if (result['status'] == 'pending') {
                           Navigator.pushNamed(context, '/pending');

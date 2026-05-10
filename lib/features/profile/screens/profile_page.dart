@@ -4,16 +4,26 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/api_service.dart';
+import '../../shared/screens/chat_screen.dart';
+import 'settings_screen.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final AppUser? targetUser;
+  final String? targetUserId;
+  const ProfilePage({super.key, this.targetUser, this.targetUserId});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  late AppUser _user;
+  late AppUser _user = AppUser(
+    id: '',
+    email: '',
+    role: '',
+    name: '...',
+    createdAt: DateTime.now(),
+  );
   bool _isEditing = false;
   bool _isLoading = false;
 
@@ -30,11 +40,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
   final List<String> _allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+  bool get _isOwnProfile {
+    final currentId = CurrentSession().user?.id;
+    if (widget.targetUser == null && widget.targetUserId == null) return true;
+    if (widget.targetUser != null && widget.targetUser!.id == currentId) return true;
+    if (widget.targetUserId != null && widget.targetUserId == currentId) return true;
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
-    _user = CurrentSession().user!;
-    _resetControllers();
+    if (widget.targetUser != null) {
+      _user = widget.targetUser!;
+      _resetControllers();
+    } else if (widget.targetUserId != null) {
+      _fetchUserById();
+    } else {
+      _user = CurrentSession().user!;
+      _resetControllers();
+    }
     _fetchDepartmentsAndInterests();
   }
 
@@ -59,6 +84,30 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } catch (e) {
       print('Error fetching departments: $e');
+    }
+  }
+
+  Future<void> _fetchUserById() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('id', widget.targetUserId!)
+          .single();
+      
+      setState(() {
+        _user = AppUser.fromJson(response);
+        _resetControllers();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching user: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -133,54 +182,62 @@ class _ProfilePageState extends State<ProfilePage> {
       final firstName = names.isNotEmpty ? names[0] : '';
       final lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
 
-      final apiService = ApiService();
-      final response = await apiService.updateProfile(_user.id, {
-        'firstName': firstName,
-        'lastName': lastName,
+      // 1. Update basic user info
+      await Supabase.instance.client.from('users').update({
+        'first_name': firstName,
+        'last_name': lastName,
         'phone': _phoneController.text.trim(),
         'department': _departmentController.text.trim(),
         'bio': _bioController.text.trim(),
-        'company': _companyController.text.trim(),
-        'jobTitle': _jobTitleController.text.trim(),
-        'availableDays': _selectedDays,
-        'interests': _selectedInterests,
+      }).eq('id', _user.id);
+
+      // 2. Update role-specific info
+      if (_user.role == 'mentor') {
+        await Supabase.instance.client.from('mentors').update({
+          'company': _companyController.text.trim(),
+          'job_title': _jobTitleController.text.trim(),
+          'available_days': _selectedDays,
+          'interests': _selectedInterests,
+        }).eq('id', _user.id);
+      } else if (_user.role == 'student') {
+        await Supabase.instance.client.from('students').update({
+          'interests': _selectedInterests,
+          'available_days': _selectedDays,
+        }).eq('id', _user.id);
+      }
+
+      // 3. Fetch fresh user data to update UI and session
+      final freshResponse = await Supabase.instance.client
+          .from('users')
+          .select('*, mentors(*), students(*)')
+          .eq('id', _user.id)
+          .single();
+
+      final Map<String, dynamic> mergedData = Map<String, dynamic>.from(freshResponse);
+      if (mergedData['role'] == 'student' && mergedData['students'] != null) {
+        final s = mergedData['students'];
+        mergedData.addAll(s is List ? s.first : s);
+      } else if (mergedData['role'] == 'mentor' && mergedData['mentors'] != null) {
+        final m = mergedData['mentors'];
+        mergedData.addAll(m is List ? m.first : m);
+      }
+
+      setState(() {
+        _user = AppUser.fromJson(mergedData);
+        CurrentSession().user = _user;
+        _isEditing = false;
+        _resetControllers();
       });
 
-      if (response['user'] != null) {
-        setState(() {
-          final Map<String, dynamic> mergedData = Map<String, dynamic>.from(response['user']);
-          
-          // Flatten as we do in Login
-          Map<String, dynamic>? extractData(dynamic data) {
-            if (data == null) return null;
-            if (data is List && data.isNotEmpty) return Map<String, dynamic>.from(data.first);
-            if (data is Map) return Map<String, dynamic>.from(data);
-            return null;
-          }
-
-          if (mergedData['role'] == 'student') {
-            final studentData = extractData(mergedData['students']);
-            if (studentData != null) mergedData.addAll(studentData);
-          } else if (mergedData['role'] == 'mentor') {
-            final mentorData = extractData(mergedData['mentors']);
-            if (mentorData != null) mergedData.addAll(mentorData);
-          }
-
-          final updatedUser = AppUser.fromJson(mergedData);
-          _user = updatedUser;
-          CurrentSession().user = updatedUser;
-          _isEditing = false;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
-          );
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error saving profile: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -195,23 +252,33 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
+        title: Text(_isLoading ? 'Loading...' : (_isOwnProfile ? 'My Profile' : '${_user.name}\'s Profile'), style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (!_isEditing)
-            IconButton(
-              icon: const Icon(Icons.edit, color: primaryColor),
-              onPressed: () => setState(() => _isEditing = true),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.red),
-              onPressed: () {
-                setState(() => _isEditing = false);
-                _resetControllers();
-              },
-            ),
+          if (_isOwnProfile) ...[
+            if (!_isEditing)
+              IconButton(
+                icon: const Icon(Icons.settings, color: primaryColor),
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                  );
+                  if (result == 'edit') {
+                    setState(() => _isEditing = true);
+                  }
+                },
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.red),
+                onPressed: () {
+                  setState(() => _isEditing = false);
+                  _resetControllers();
+                },
+              ),
+          ]
         ],
       ),
       body: _isLoading 
@@ -224,7 +291,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 32),
                   _buildInfoSection(primaryColor),
                   const SizedBox(height: 32),
-                  if (_isEditing)
+                  if (_isEditing && _isOwnProfile)
                     ElevatedButton(
                       onPressed: _saveProfile,
                       style: ElevatedButton.styleFrom(
@@ -236,6 +303,49 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       child: const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
+                  if (!_isOwnProfile) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              // Action for Schedule Meeting
+                            },
+                            icon: const Icon(Icons.calendar_today),
+                            label: const Text('Schedule'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatDetailScreen(targetUser: _user),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.message),
+                            label: const Text('Message'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor.withValues(alpha: 0.1),
+                              foregroundColor: primaryColor,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

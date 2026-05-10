@@ -12,7 +12,7 @@ const protect = async (req, res, next) => {
 
       const { data: user, error } = await supabase
         .from('users')
-        .select('id, name, email')
+        .select('id, first_name, last_name, email')
         .eq('id', decoded.id)
         .maybeSingle();
 

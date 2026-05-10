@@ -6,6 +6,10 @@ const supabase = require('../config/supabase');
 const updateProfile = async (req, res) => {
   const { userId } = req.params;
   const { firstName, lastName, phone, department, bio, company, jobTitle, availableDays, interests } = req.body;
+  // Authorization check
+  if (req.user.id !== userId) {
+    return res.status(403).json({ error: 'Forbidden: You can only update your own profile.' });
+  }
 
   try {
     // 1. Get user role first
@@ -76,6 +80,11 @@ const updateProfile = async (req, res) => {
 const uploadProfileImage = async (req, res) => {
   const { userId } = req.params;
   const file = req.file;
+
+  // Authorization check
+  if (req.user.id !== userId) {
+    return res.status(403).json({ error: 'Forbidden: You can only update your own profile image.' });
+  }
 
   if (!file) {
     return res.status(400).json({ error: 'No file uploaded' });
