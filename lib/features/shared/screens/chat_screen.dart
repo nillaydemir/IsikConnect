@@ -7,13 +7,13 @@ class ConversationItem {
   final AppUser targetUser;
   final String? lastMessage;
   final DateTime? lastMessageTime;
-  final bool isUnread;
+  final int unreadCount;
 
   ConversationItem({
     required this.targetUser,
     this.lastMessage,
     this.lastMessageTime,
-    this.isUnread = false,
+    this.unreadCount = 0,
   });
 }
 
@@ -96,18 +96,31 @@ class _ChatScreenState extends State<ChatScreen> {
 
           String? lastMsg;
           DateTime? lastMsgTime;
-          bool isUnread = false; // Add real unread logic here if you add 'is_read' to messages table
+          int unreadCount = 0;
 
           if (msgResponse != null) {
             lastMsg = msgResponse['content'];
             lastMsgTime = DateTime.parse(msgResponse['created_at']).toLocal();
+            // Check if there are any unread messages from this user to me
+            try {
+              final unreadResponse = await _supabase
+                  .from('messages')
+                  .select('id')
+                  .eq('sender_id', user.id)
+                  .eq('receiver_id', myId)
+                  .eq('is_read', false);
+              unreadCount = (unreadResponse as List).length;
+            } catch (e) {
+               // Ignore if 'is_read' column doesn't exist yet
+               debugPrint('is_read column may not exist: $e');
+            }
           }
 
           convos.add(ConversationItem(
             targetUser: user,
             lastMessage: lastMsg,
             lastMessageTime: lastMsgTime,
-            isUnread: isUnread,
+            unreadCount: unreadCount,
           ));
         } catch (e) {
           debugPrint('Error fetching last message for ${user.id}: $e');
@@ -219,9 +232,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     subtitle: Text(
                       convo.lastMessage ?? 'Tap to start conversation',
                       style: TextStyle(
-                        color: convo.isUnread ? Colors.black87 : Colors.grey.shade600, 
+                        color: convo.unreadCount > 0 ? Colors.black87 : Colors.grey.shade600, 
                         fontSize: 13, 
-                        fontWeight: convo.isUnread ? FontWeight.bold : FontWeight.normal
+                        fontWeight: convo.unreadCount > 0 ? FontWeight.bold : FontWeight.normal
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -234,22 +247,22 @@ class _ChatScreenState extends State<ChatScreen> {
                           Text(
                             _formatTime(convo.lastMessageTime!),
                             style: TextStyle(
-                              color: convo.isUnread ? primaryColor : Colors.grey.shade500,
+                              color: convo.unreadCount > 0 ? primaryColor : Colors.grey.shade500,
                               fontSize: 12,
-                              fontWeight: convo.isUnread ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: convo.unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                         const SizedBox(height: 4),
-                        if (convo.isUnread)
+                        if (convo.unreadCount > 0)
                           Container(
                             padding: const EdgeInsets.all(6),
                             decoration: const BoxDecoration(
-                              color: primaryColor,
+                              color: Colors.red,
                               shape: BoxShape.circle,
                             ),
-                            child: const Text(
-                              '1', // Dummy unread count
-                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            child: Text(
+                              '${convo.unreadCount}',
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           )
                         else
@@ -313,6 +326,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                (sender == widget.targetUser.id && receiver == _myId);
       }).toList();
     });
+
+    _markMessagesAsRead();
+  }
+
+  Future<void> _markMessagesAsRead() async {
+    try {
+      await _supabase
+          .from('messages')
+          .update({'is_read': true})
+          .eq('sender_id', widget.targetUser.id)
+          .eq('receiver_id', _myId)
+          .eq('is_read', false);
+    } catch (e) {
+      debugPrint('Error marking messages as read (column might not exist yet): $e');
+    }
   }
 
   @override
@@ -333,6 +361,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'sender_id': _myId,
         'receiver_id': widget.targetUser.id,
         'content': text,
+        'is_read': false,
         // created_at is handled by DB default now()
       });
       

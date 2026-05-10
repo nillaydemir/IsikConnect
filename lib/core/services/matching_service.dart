@@ -69,6 +69,7 @@ class MatchingService {
         id: row['id'],
         name: '${row['first_name']} ${row['last_name']}',
         email: row['email'],
+        profileImageUrl: row['profile_image_url'],
         department: row['department'] ?? '',
         graduationYear: mentorData['graduation_year']?.toString() ?? '',
         skills: List<String>.from(mentorData['interests'] ?? []),

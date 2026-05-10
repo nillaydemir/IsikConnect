@@ -2,11 +2,13 @@ class User {
   final String id;
   final String name;
   final String email;
+  final String? profileImageUrl;
 
   User({
     required this.id,
     required this.name,
     required this.email,
+    this.profileImageUrl,
   });
 }
 
@@ -21,6 +23,7 @@ class Student extends User {
     required super.id,
     required super.name,
     required super.email,
+    super.profileImageUrl,
     required this.department,
     required this.classLevel,
     required this.requestedTopics,
@@ -45,6 +48,7 @@ class Mentor extends User {
     required super.id,
     required super.name,
     required super.email,
+    super.profileImageUrl,
     required this.department,
     required this.graduationYear,
     this.company,

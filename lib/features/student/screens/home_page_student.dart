@@ -8,6 +8,8 @@ import '../../../core/services/current_session.dart';
 import '../../shared/screens/chat_screen.dart';
 import '../../shared/screens/forum_screen.dart';
 import '../../shared/screens/meetings_screen.dart';
+import '../../forum/services/forum_service.dart';
+import '../../forum/models/forum_post_model.dart';
 
 class HomePageStudent extends StatefulWidget {
   const HomePageStudent({super.key});
@@ -52,10 +54,36 @@ class _HomePageStudentState extends State<HomePageStudent> {
         backgroundColor: Colors.white,
         elevation: 1, // Soft shadow
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: primaryColor),
-            onPressed: () {
-              Navigator.pushNamed(context, '/announcements');
+          StreamBuilder<int>(
+            stream: ForumService().getUnreadCountStream(),
+            builder: (context, snapshot) {
+              final count = snapshot.data ?? 0;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications, color: primaryColor),
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/announcements');
+                    },
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
           IconButton(
@@ -106,6 +134,11 @@ class _HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const primaryColor = Color.fromARGB(255, 38, 55, 140);
+    final user = CurrentSession().user;
+    final userName = user?.name?.split(' ').first ?? 'Student';
+    final profileImageUrl = user?.profileImageUrl;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -114,23 +147,29 @@ class _HomeTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Good Morning,',
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   Text(
-                    'Student',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+                    userName,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                 ],
               ),
               CircleAvatar(
                 radius: 24,
-                backgroundColor: Colors.grey.shade200,
-                child: const Icon(Icons.person, color: Colors.grey),
+                backgroundColor: primaryColor.withValues(alpha: 0.1),
+                backgroundImage: profileImageUrl != null ? NetworkImage(profileImageUrl) : null,
+                child: profileImageUrl == null 
+                  ? Text(
+                      userName.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 20),
+                    )
+                  : null,
               ),
             ],
           ),
@@ -318,6 +357,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
           id: mentorId,
           name: '${userData['first_name']} ${userData['last_name']}',
           email: userData['email'],
+          profileImageUrl: userData['profile_image_url'],
           department: userData['department'] ?? '',
           graduationYear: mentorData['graduation_year']?.toString() ?? '',
           skills: List<String>.from(mentorData['interests'] ?? []),
@@ -615,20 +655,18 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                       children: [
                         CircleAvatar(
                           radius: 30,
-                          backgroundColor: const Color.fromARGB(
-                            255,
-                            38,
-                            55,
-                            140,
-                          ).withValues(alpha: 0.1),
-                          child: Text(
-                            _matchedMentor!.name.substring(0, 1),
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Color.fromARGB(255, 38, 55, 140),
-                            ),
-                          ),
+                          backgroundColor: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.1),
+                          backgroundImage: _matchedMentor!.profileImageUrl != null ? NetworkImage(_matchedMentor!.profileImageUrl!) : null,
+                          child: _matchedMentor!.profileImageUrl == null
+                            ? Text(
+                                _matchedMentor!.name.substring(0, 1),
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color.fromARGB(255, 38, 55, 140),
+                                ),
+                              )
+                            : null,
                         ),
                         const SizedBox(width: 16),
                         Expanded(

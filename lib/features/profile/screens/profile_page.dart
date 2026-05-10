@@ -5,6 +5,7 @@ import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/api_service.dart';
 import '../../shared/screens/chat_screen.dart';
+import 'settings_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   final AppUser? targetUser;
@@ -16,7 +17,13 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  late AppUser _user;
+  late AppUser _user = AppUser(
+    id: '',
+    email: '',
+    role: '',
+    name: '...',
+    createdAt: DateTime.now(),
+  );
   bool _isEditing = false;
   bool _isLoading = false;
 
@@ -32,7 +39,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
   final List<String> _allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  bool get _isOwnProfile => widget.targetUser == null || widget.targetUser!.id == CurrentSession().user!.id;
+  bool get _isOwnProfile {
+    final currentId = CurrentSession().user?.id;
+    if (widget.targetUser == null && widget.targetUserId == null) return true;
+    if (widget.targetUser != null && widget.targetUser!.id == currentId) return true;
+    if (widget.targetUserId != null && widget.targetUserId == currentId) return true;
+    return false;
+  }
 
   @override
   void initState() {
@@ -213,15 +226,23 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(_isOwnProfile ? 'My Profile' : '${_user.name}\'s Profile', style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
+        title: Text(_isLoading ? 'Loading...' : (_isOwnProfile ? 'My Profile' : '${_user.name}\'s Profile'), style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
           if (_isOwnProfile) ...[
             if (!_isEditing)
               IconButton(
-                icon: const Icon(Icons.edit, color: primaryColor),
-                onPressed: () => setState(() => _isEditing = true),
+                icon: const Icon(Icons.settings, color: primaryColor),
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                  );
+                  if (result == 'edit') {
+                    setState(() => _isEditing = true);
+                  }
+                },
               )
             else
               IconButton(
