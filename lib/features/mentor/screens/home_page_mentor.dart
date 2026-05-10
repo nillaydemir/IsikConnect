@@ -4,11 +4,12 @@ import '../../../core/services/current_session.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../profile/screens/profile_page.dart';
 import '../../shared/screens/chat_screen.dart';
-import '../../shared/screens/forum_screen.dart';
 import '../../shared/screens/meetings_screen.dart';
 import '../../shared/screens/create_meeting_screen.dart';
+import '../../shared/screens/forum_screen.dart';
 import '../../forum/services/forum_service.dart';
 import '../../forum/models/forum_post_model.dart';
+import '../../../core/services/meeting_service.dart';
 
 class HomePageMentor extends StatefulWidget {
   const HomePageMentor({super.key});
@@ -134,12 +135,30 @@ class _HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<_HomeTab> {
   List<Map<String, dynamic>> _mentees = [];
+  List<Map<String, dynamic>> _upcomingMeetings = [];
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _fetchMentees();
+    _fetchUpcomingMeetings();
+  }
+
+  Future<void> _fetchUpcomingMeetings() async {
+    try {
+      final meetings = await MeetingService().getMeetings();
+      final now = DateTime.now();
+      setState(() {
+        _upcomingMeetings = meetings.where((m) {
+          if (m['meeting_date'] == null) return false;
+          final date = DateTime.parse(m['meeting_date']);
+          return date.isAfter(now);
+        }).toList();
+      });
+    } catch (e) {
+      print('Error fetching upcoming meetings: $e');
+    }
   }
 
   Future<void> _fetchMentees() async {
@@ -239,7 +258,9 @@ class _HomeTabState extends State<_HomeTab> {
           
           const Text('Upcoming Sessions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          _buildCardSection('No upcoming sessions.', Icons.event_available, []),
+          _upcomingMeetings.isEmpty 
+            ? _buildCardSection('No upcoming sessions.', Icons.event_available, [])
+            : _buildMeetingsList(),
           
           const SizedBox(height: 32),
           const Text('My Mentees', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -359,6 +380,64 @@ class _HomeTabState extends State<_HomeTab> {
           style: const TextStyle(color: Colors.grey),
         ),
       ),
+    );
+  }
+
+  Widget _buildMeetingsList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: _upcomingMeetings.length > 3 ? 3 : _upcomingMeetings.length, // Show max 3 on home page
+      itemBuilder: (context, index) {
+        final meeting = _upcomingMeetings[index];
+        final isWorkshop = meeting['meeting_type'] == 'Workshop';
+        final date = DateTime.parse(meeting['meeting_date']).toLocal();
+        final dateStr = '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+
+        return Card(
+          elevation: 0,
+          color: Colors.white,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: isWorkshop ? Colors.orange.shade50 : Colors.blue.shade50,
+              child: Icon(
+                isWorkshop ? Icons.group : Icons.person,
+                color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
+              ),
+            ),
+            title: Text(
+              meeting['title'] ?? 'Meeting',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Text(
+              dateStr,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isWorkshop ? Colors.orange.shade50 : Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                meeting['meeting_type'] ?? '',
+                style: TextStyle(
+                  color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
