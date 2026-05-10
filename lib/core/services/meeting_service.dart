@@ -66,6 +66,28 @@ class MeetingService {
         .select('*, mentor:mentor_id(first_name, last_name), student:student_id(first_name, last_name)')
         .order('meeting_date', ascending: true);
 
-    return List<Map<String, dynamic>>.from(response);
+    final registrations = await _supabase
+        .from('workshop_participants')
+        .select('meeting_id')
+        .eq('student_id', user.id);
+
+    final Set<String> registeredMeetingIds = registrations.map((r) => r['meeting_id'].toString()).toSet();
+
+    final List<dynamic> data = response;
+    return data.map((meeting) {
+      final Map<String, dynamic> meetingMap = Map<String, dynamic>.from(meeting);
+      meetingMap['is_registered'] = registeredMeetingIds.contains(meeting['id'].toString());
+      return meetingMap;
+    }).toList();
+  }
+
+  Future<void> registerForWorkshop(String meetingId) async {
+    final user = CurrentSession().user;
+    if (user == null) throw Exception('User not logged in');
+
+    await _supabase.from('workshop_participants').insert({
+      'meeting_id': meetingId,
+      'student_id': user.id,
+    });
   }
 }

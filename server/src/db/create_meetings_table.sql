@@ -8,3 +8,11 @@ CREATE TABLE IF NOT EXISTS meetings (
     capacity INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- Table to handle multiple participants (students) for a Workshop meeting
+CREATE TABLE IF NOT EXISTS workshop_participants (
+    meeting_id UUID REFERENCES meetings(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    registered_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    PRIMARY KEY (meeting_id, student_id)
+);

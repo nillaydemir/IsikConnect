@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/meeting_service.dart';
 import '../../../core/services/current_session.dart';
 import 'create_meeting_screen.dart';
+import 'video_call_screen.dart';
 
 class MeetingsScreen extends StatefulWidget {
   const MeetingsScreen({super.key});
@@ -91,16 +92,18 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
 
             return TabBarView(
               children: [
-                _MeetingList(type: 'All', meetings: allMeetings, currentUserId: currentUserId),
+                _MeetingList(type: 'All', meetings: allMeetings, currentUserId: currentUserId, onRefresh: () => setState((){})),
                 _MeetingList(
                   type: 'Workshops',
                   meetings: allMeetings.where((m) => m['meeting_type'] == 'Workshop').toList(),
                   currentUserId: currentUserId,
+                  onRefresh: () => setState((){}),
                 ),
                 _MeetingList(
                   type: 'My Meetings',
-                  meetings: allMeetings.where((m) => m['mentor_id'] == currentUserId || m['student_id'] == currentUserId).toList(),
+                  meetings: allMeetings.where((m) => m['mentor_id'] == currentUserId || m['student_id'] == currentUserId || (m['is_registered'] == true)).toList(),
                   currentUserId: currentUserId,
+                  onRefresh: () => setState((){}),
                 ),
               ],
             );
@@ -111,36 +114,78 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
   }
 }
 
-class _MeetingList extends StatelessWidget {
+class _MeetingList extends StatefulWidget {
   final String type;
   final List<Map<String, dynamic>> meetings;
   final String currentUserId;
+  final VoidCallback onRefresh;
 
   const _MeetingList({
     required this.type,
     required this.meetings,
     required this.currentUserId,
+    required this.onRefresh,
   });
+
+  @override
+  State<_MeetingList> createState() => _MeetingListState();
+}
+
+class _MeetingListState extends State<_MeetingList> {
+  final _meetingService = MeetingService();
+  final Set<String> _processingMeetings = {};
+
+  Future<void> _handleRegister(String meetingId) async {
+    setState(() {
+      _processingMeetings.add(meetingId);
+    });
+    try {
+      await _meetingService.registerForWorkshop(meetingId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Successfully registered for workshop!')),
+      );
+      widget.onRefresh();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to register: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processingMeetings.remove(meetingId);
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
 
-    if (meetings.isEmpty) {
+    if (widget.meetings.isEmpty) {
       return const Center(child: Text('No meetings here.'));
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: meetings.length,
+      itemCount: widget.meetings.length,
       itemBuilder: (context, index) {
-        final meeting = meetings[index];
+        final meeting = widget.meetings[index];
+        final meetingIdStr = meeting['id'].toString();
         final isWorkshop = meeting['meeting_type'] == 'Workshop';
         final is1on1 = meeting['meeting_type'] == '1-on-1';
         
-        // If current user is mentor, they host it. If current user is student, they either joined or it's their 1-1
-        bool isMyMeeting = meeting['mentor_id'] == currentUserId || meeting['student_id'] == currentUserId;
-        bool isJoined = isMyMeeting; 
+        // For 1-on-1s, only host and specific mentee can join.
+        // For Workshops, host can join, students must be registered.
+        bool isHost = meeting['mentor_id'] == widget.currentUserId;
+        bool isJoined = false;
+        bool isRegistered = meeting['is_registered'] == true;
+        
+        if (isWorkshop) {
+          isJoined = isHost || isRegistered;
+        } else {
+          isJoined = isHost || meeting['student_id'] == widget.currentUserId;
+        }
 
         final dateStr = meeting['meeting_date'] != null 
           ? DateTime.parse(meeting['meeting_date']).toLocal().toString().substring(0, 16) 
@@ -201,7 +246,7 @@ class _MeetingList extends StatelessWidget {
                     Text('Host: $mentorName', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
                   ],
                 ),
-                if (is1on1 && (meeting['mentor_id'] == currentUserId || meeting['student_id'] == currentUserId)) ...[
+                if (is1on1 && (meeting['mentor_id'] == widget.currentUserId || meeting['student_id'] == widget.currentUserId)) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -212,27 +257,59 @@ class _MeetingList extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(isJoined ? 'You are already in this meeting' : 'Joined successfully!')),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isJoined ? Colors.grey.shade200 : primaryColor,
-                      foregroundColor: isJoined ? Colors.black87 : Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                if (isWorkshop && !isHost && !isRegistered)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _processingMeetings.contains(meetingIdStr)
+                          ? null
+                          : () => _handleRegister(meetingIdStr),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange.shade600,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: _processingMeetings.contains(meetingIdStr)
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Register for Workshop', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-                    child: Text(
-                      isJoined ? 'Joined' : 'Join Meeting',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (!isJoined) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('You are not a participant in this meeting.')),
+                          );
+                          return;
+                        }
+                        
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => VideoCallScreen(
+                              channelName: meetingIdStr,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Join Meeting',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
