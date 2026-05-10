@@ -1,11 +1,21 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'current_session.dart';
 
 class ApiService {
   final String baseUrl;
 
   ApiService({String? baseUrl}) : baseUrl = baseUrl ?? (Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000');
+
+  Map<String, String> get _authHeaders {
+    final headers = {'Content-Type': 'application/json'};
+    if (CurrentSession().token != null) {
+      headers['Authorization'] = 'Bearer ${CurrentSession().token}';
+    }
+    return headers;
+  }
 
   Future<Map<String, dynamic>> registerMentor(Map<String, dynamic> data, dynamic file) async {
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/mentor/register'));
@@ -132,9 +142,12 @@ class ApiService {
   Future<Map<String, dynamic>> updateProfile(String userId, Map<String, dynamic> data) async {
     final response = await http.put(
       Uri.parse('$baseUrl/profile/$userId'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _authHeaders,
       body: jsonEncode(data),
     );
+    if (response.statusCode != 200) {
+      throw 'Error updating profile: ${response.statusCode} - ${response.body}';
+    }
     return jsonDecode(response.body);
   }
 
@@ -156,8 +169,47 @@ class ApiService {
       }
     }
 
+    if (CurrentSession().token != null) {
+      request.headers['Authorization'] = 'Bearer ${CurrentSession().token}';
+    }
+
     final response = await request.send();
     final responseBody = await response.stream.bytesToString();
+    if (response.statusCode != 200) {
+      throw 'Error uploading image: ${response.statusCode} - $responseBody';
+    }
     return jsonDecode(responseBody);
+  }
+
+  Future<void> deleteAccount(String userId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/account/$userId'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode != 200) {
+      throw 'Error deleting account: ${response.statusCode} - ${response.body}';
+    }
+  }
+
+  Future<void> sendSupportRequest(String subject, String message) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/account/support'),
+      headers: _authHeaders,
+      body: jsonEncode({'subject': subject, 'message': message}),
+    );
+    if (response.statusCode != 200) {
+      throw 'Error sending support request: ${response.statusCode} - ${response.body}';
+    }
+  }
+
+  Future<void> updatePassword(String newPassword) async {
+    // Supabase has a direct flutter package method to update password if the user is authenticated.
+    // So we use the flutter SDK directly instead of node.js backend.
+    final response = await Supabase.instance.client.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+    if (response.user == null) {
+      throw 'Failed to update password.';
+    }
   }
 }

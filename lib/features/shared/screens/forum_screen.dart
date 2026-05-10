@@ -1,46 +1,87 @@
 import 'package:flutter/material.dart';
+import '../../forum/services/forum_service.dart';
+import '../../forum/models/forum_post_model.dart';
+import '../../forum/widgets/post_card.dart';
+import '../../forum/screens/create_post_screen.dart';
+import '../../forum/screens/post_detail_screen.dart';
+import '../../../core/services/current_session.dart';
 
-class ForumScreen extends StatelessWidget {
+class ForumScreen extends StatefulWidget {
   const ForumScreen({super.key});
+
+  @override
+  State<ForumScreen> createState() => _ForumScreenState();
+}
+
+class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onAddPressed() {
+    final role = CurrentSession().user?.role ?? 'student';
+    String initialCategory = 'Q&A';
+    
+    if (role == 'mentor') {
+      if (_tabController.index == 0) initialCategory = 'Announcements';
+      if (_tabController.index == 2) initialCategory = 'Workshops';
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreatePostScreen(initialCategory: initialCategory),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
+    final role = CurrentSession().user?.role ?? 'student';
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          title: const Text('Community Forum', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          centerTitle: false,
-          bottom: const TabBar(
-            labelColor: primaryColor,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: primaryColor,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold),
-            tabs: [
-              Tab(text: 'Announcements'),
-              Tab(text: 'Q&A'),
-              Tab(text: 'Workshops'),
-            ],
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: primaryColor),
-              onPressed: () {},
-            ),
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('Community Forum', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: primaryColor,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: primaryColor,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          tabs: const [
+            Tab(text: 'Announcements'),
+            Tab(text: 'Q&A'),
+            Tab(text: 'Workshops'),
           ],
         ),
-        body: const TabBarView(
-          children: [
-            _ForumList(category: 'Announcements'),
-            _ForumList(category: 'Q&A'),
-            _ForumList(category: 'Workshops'),
-          ],
-        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: const [
+          _ForumList(category: 'Announcements'),
+          _ForumList(category: 'Q&A'),
+          _ForumList(category: 'Workshops'),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _onAddPressed,
+        backgroundColor: primaryColor,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -52,77 +93,47 @@ class _ForumList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color.fromARGB(255, 38, 55, 140);
+    return StreamBuilder<List<ForumPost>>(
+      stream: ForumService().getPostsStream(category),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 5,
-      itemBuilder: (context, index) {
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          elevation: 2,
-          shadowColor: Colors.black.withValues(alpha: 0.05),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
+        if (snapshot.hasError) {
+          return Center(child: Text('Error loading posts: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+        }
+
+        final posts = snapshot.data ?? [];
+
+        if (posts.isEmpty) {
+          return Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: primaryColor.withValues(alpha: 0.1),
-                      child: Text(
-                        'U',
-                        style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('User Name', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    const Spacer(),
-                    Text('2h ago', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'This is an example $category post title',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Here is a short preview of the post content to give users an idea of what is inside. It is clean and readable.',
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Icon(Icons.forum_outlined, size: 64, color: Colors.grey.shade300),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Icon(Icons.thumb_up_alt_outlined, size: 18, color: Colors.grey.shade600),
-                    const SizedBox(width: 4),
-                    Text('24', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
-                    const SizedBox(width: 16),
-                    Icon(Icons.comment_outlined, size: 18, color: Colors.grey.shade600),
-                    const SizedBox(width: 4),
-                    Text('5', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        category,
-                        style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
+                Text('No posts in $category yet.', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
               ],
             ),
-          ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            final post = posts[index];
+            return PostCard(
+              post: post,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => PostDetailScreen(post: post)),
+                );
+              },
+            );
+          },
         );
       },
     );

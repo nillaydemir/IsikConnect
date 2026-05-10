@@ -7,6 +7,8 @@ import '../../shared/screens/chat_screen.dart';
 import '../../shared/screens/forum_screen.dart';
 import '../../shared/screens/meetings_screen.dart';
 import '../../shared/screens/create_meeting_screen.dart';
+import '../../forum/services/forum_service.dart';
+import '../../forum/models/forum_post_model.dart';
 
 class HomePageMentor extends StatefulWidget {
   const HomePageMentor({super.key});
@@ -46,10 +48,36 @@ class _HomePageMentorState extends State<HomePageMentor> {
         backgroundColor: Colors.white,
         elevation: 1,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: primaryColor),
-            onPressed: () {
-              Navigator.pushNamed(context, '/announcements');
+          StreamBuilder<int>(
+            stream: ForumService().getUnreadCountStream(),
+            builder: (context, snapshot) {
+              final count = snapshot.data ?? 0;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications, color: primaryColor),
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/announcements');
+                    },
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
           IconButton(
@@ -146,6 +174,9 @@ class _HomeTabState extends State<_HomeTab> {
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
+    final user = CurrentSession().user;
+    final userName = user?.name?.split(' ').first ?? 'Mentor';
+    final profileImageUrl = user?.profileImageUrl;
     
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
@@ -155,23 +186,29 @@ class _HomeTabState extends State<_HomeTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Good Morning,',
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   Text(
-                    'Mentor',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+                    userName,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                 ],
               ),
               CircleAvatar(
                 radius: 24,
-                backgroundColor: Colors.grey.shade200,
-                child: const Icon(Icons.person, color: Colors.grey),
+                backgroundColor: primaryColor.withValues(alpha: 0.1),
+                backgroundImage: profileImageUrl != null ? NetworkImage(profileImageUrl) : null,
+                child: profileImageUrl == null 
+                  ? Text(
+                      userName.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 20),
+                    )
+                  : null,
               ),
             ],
           ),
@@ -256,10 +293,13 @@ class _HomeTabState extends State<_HomeTab> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: CircleAvatar(
               backgroundColor: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.1),
-              child: Text(
-                userData['first_name']?[0] ?? 'S',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Color.fromARGB(255, 38, 55, 140)),
-              ),
+              backgroundImage: userData['profile_image_url'] != null ? NetworkImage(userData['profile_image_url']) : null,
+              child: userData['profile_image_url'] == null
+                  ? Text(
+                      userData['first_name']?[0] ?? 'S',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color.fromARGB(255, 38, 55, 140)),
+                    )
+                  : null,
             ),
             title: Text(
               '${userData['first_name']} ${userData['last_name']}',

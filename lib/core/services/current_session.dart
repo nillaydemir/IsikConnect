@@ -7,9 +7,11 @@ class CurrentSession {
   CurrentSession._internal();
 
   AppUser? user;
+  String? token;
 
   // Clear session on logout
   void clear() {
     user = null;
+    token = null;
   }
 }
