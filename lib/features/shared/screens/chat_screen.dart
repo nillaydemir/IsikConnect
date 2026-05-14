@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
+import '../../../core/services/message_service.dart';
+import 'dart:async';
 
 class ConversationItem {
   final AppUser targetUser;
@@ -28,15 +30,26 @@ class _ChatScreenState extends State<ChatScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<ConversationItem> _conversations = [];
+  StreamSubscription? _conversationsSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchConversations();
+    // Listen for real-time changes
+    _conversationsSubscription = MessageService().getConversationsChangedStream().listen((_) {
+      _fetchConversations(showLoading: false);
+    });
   }
 
-  Future<void> _fetchConversations() async {
-    setState(() => _isLoading = true);
+  @override
+  void dispose() {
+    _conversationsSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchConversations({bool showLoading = true}) async {
+    if (showLoading) setState(() => _isLoading = true);
     try {
       final myId = CurrentSession().user!.id;
       final myRole = CurrentSession().user!.role;
@@ -176,12 +189,6 @@ class _ChatScreenState extends State<ChatScreen> {
             centerTitle: false,
             floating: true,
             automaticallyImplyLeading: false,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.search, color: Colors.black87),
-                onPressed: () {},
-              ),
-            ],
           ),
           if (_isLoading)
             const SliverFillRemaining(
@@ -220,10 +227,15 @@ class _ChatScreenState extends State<ChatScreen> {
                     leading: CircleAvatar(
                       radius: 26,
                       backgroundColor: primaryColor.withValues(alpha: 0.1),
-                      child: Text(
-                        (targetUser.name ?? 'U')[0].toUpperCase(),
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 20),
-                      ),
+                      backgroundImage: targetUser.profileImageUrl != null
+                          ? NetworkImage(targetUser.profileImageUrl!)
+                          : null,
+                      child: targetUser.profileImageUrl == null
+                          ? Text(
+                              (targetUser.name ?? 'U')[0].toUpperCase(),
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 20),
+                            )
+                          : null,
                     ),
                     title: Text(
                       targetUser.name ?? 'Unknown User',
@@ -403,10 +415,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             CircleAvatar(
               radius: 16,
               backgroundColor: primaryColor.withValues(alpha: 0.1),
-              child: Text(
-                (widget.targetUser.name ?? 'U')[0].toUpperCase(),
-                style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 14),
-              ),
+              backgroundImage: widget.targetUser.profileImageUrl != null
+                  ? NetworkImage(widget.targetUser.profileImageUrl!)
+                  : null,
+              child: widget.targetUser.profileImageUrl == null
+                  ? Text(
+                      (widget.targetUser.name ?? 'U')[0].toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 14),
+                    )
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -430,26 +447,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
       body: Column(
         children: [
-          // "Schedule Meeting" quick action button above messages
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.white,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                // Navigate to schedule meeting (placeholder)
-              },
-              icon: const Icon(Icons.calendar_today, size: 18),
-              label: const Text('Schedule Meeting'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor.withValues(alpha: 0.1),
-                foregroundColor: primaryColor,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
           
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(

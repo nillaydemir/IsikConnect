@@ -11,9 +11,9 @@ const generateToken = (id) => {
 
 const registerStudent = async (req, res) => {
   console.log('--- [DEBUG] Registering Student Request ---');
-  
+
   let { full_name, email, password, department, class_level, interests, available_days, phone } = req.body;
-  
+
   // Handle JSON strings from multipart form-data
   try {
     if (typeof available_days === 'string') available_days = JSON.parse(available_days);
@@ -34,7 +34,7 @@ const registerStudent = async (req, res) => {
 
   try {
     let student_doc_url = '';
-    
+
     // 1. File upload
     const file = req.file;
     // Sanitize file name to prevent Supabase upload errors (e.g. invalid characters)
@@ -55,7 +55,7 @@ const registerStudent = async (req, res) => {
     const { data: publicUrlData } = supabase.storage
       .from(BUCKET_NAME)
       .getPublicUrl(uploadData.path);
-    
+
     student_doc_url = publicUrlData.publicUrl;
 
     // 2. Create user in Supabase Auth
@@ -135,8 +135,8 @@ const registerStudent = async (req, res) => {
 
   } catch (error) {
     console.error("Registration error:", error);
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       message: 'Server error during student registration',
       error: error.message || error,
       details: error.details,
@@ -184,16 +184,16 @@ const loginStudent = async (req, res) => {
     const status = studentData?.status || 'pending';
 
     if (status === 'pending') {
-      return res.status(403).json({ 
-        message: 'Your application is under review', 
-        status: 'pending' 
+      return res.status(403).json({
+        message: 'Your application is under review',
+        status: 'pending'
       });
     }
 
     if (status === 'rejected') {
-      return res.status(403).json({ 
-        message: 'Your application was rejected', 
-        status: 'rejected' 
+      return res.status(403).json({
+        message: 'Your application was rejected',
+        status: 'rejected'
       });
     }
 
@@ -211,7 +211,48 @@ const loginStudent = async (req, res) => {
   }
 };
 
+const rateMentor = async (req, res) => {
+  const { mentor_id, rating, comment } = req.body;
+
+  if (!mentor_id || !rating) {
+    return res.status(400).json({ message: "Mentor ID and rating are required." });
+  }
+
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    let student_id;
+
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      student_id = decoded.id;
+    } else {
+      return res.status(401).json({ message: "Unauthorized: Missing or invalid token" });
+    }
+
+    // Upsert the review
+    const { data, error } = await supabase
+      .from('reviews')
+      .upsert({
+        mentor_id,
+        student_id,
+        rating,
+        comment
+      }, { onConflict: 'mentor_id, student_id' });
+
+    if (error) {
+      console.error("DB Insert Review Error:", error);
+      return res.status(500).json({ message: "Error saving review", error: error.message });
+    }
+
+    res.status(200).json({ message: "Review saved successfully." });
+  } catch (error) {
+    console.error("Rate mentor error:", error);
+    res.status(500).json({ message: "Server error during rating mentor" });
+  }
+};
+
 module.exports = {
   registerStudent,
-  loginStudent
+  loginStudent,
+  rateMentor
 };

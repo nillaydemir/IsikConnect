@@ -101,11 +101,13 @@ class PostCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   
                   // Post Title
-                  Text(
-                    post.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
+                  if (post.title.isNotEmpty) ...[
+                    Text(
+                      post.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   
                   // Post Content / Description
                   Text(

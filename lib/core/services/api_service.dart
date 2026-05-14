@@ -212,4 +212,20 @@ class ApiService {
       throw 'Failed to update password.';
     }
   }
+
+  Future<Map<String, dynamic>> rateMentor(String mentorId, int rating, String comment) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/student/rate-mentor'),
+      headers: _authHeaders,
+      body: jsonEncode({
+        'mentor_id': mentorId,
+        'rating': rating,
+        'comment': comment,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw 'Error rating mentor: ${response.statusCode} - ${response.body}';
+    }
+    return jsonDecode(response.body);
+  }
 }

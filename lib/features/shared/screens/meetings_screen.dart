@@ -42,7 +42,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: Colors.grey[50],
         appBar: AppBar(
@@ -59,6 +59,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
               Tab(text: 'All'),
               Tab(text: 'Workshops'),
               Tab(text: 'My Meetings'),
+              Tab(text: 'Past'),
             ],
           ),
           actions: [
@@ -89,19 +90,36 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
             }
 
             final allMeetings = snapshot.data!;
+            final now = DateTime.now();
+            
+            final upcomingMeetings = allMeetings.where((m) {
+              if (m['meeting_date'] == null) return false;
+              return DateTime.parse(m['meeting_date']).isAfter(now);
+            }).toList();
+
+            final pastMeetings = allMeetings.where((m) {
+              if (m['meeting_date'] == null) return false;
+              return DateTime.parse(m['meeting_date']).isBefore(now);
+            }).toList();
 
             return TabBarView(
               children: [
-                _MeetingList(type: 'All', meetings: allMeetings, currentUserId: currentUserId, onRefresh: () => setState((){})),
+                _MeetingList(type: 'All', meetings: upcomingMeetings, currentUserId: currentUserId, onRefresh: () => setState((){})),
                 _MeetingList(
                   type: 'Workshops',
-                  meetings: allMeetings.where((m) => m['meeting_type'] == 'Workshop').toList(),
+                  meetings: upcomingMeetings.where((m) => m['meeting_type'] == 'Workshop').toList(),
                   currentUserId: currentUserId,
                   onRefresh: () => setState((){}),
                 ),
                 _MeetingList(
                   type: 'My Meetings',
-                  meetings: allMeetings.where((m) => m['mentor_id'] == currentUserId || m['student_id'] == currentUserId || (m['is_registered'] == true)).toList(),
+                  meetings: upcomingMeetings.where((m) => m['mentor_id'] == currentUserId || m['student_id'] == currentUserId || (m['is_registered'] == true)).toList(),
+                  currentUserId: currentUserId,
+                  onRefresh: () => setState((){}),
+                ),
+                _MeetingList(
+                  type: 'Past',
+                  meetings: pastMeetings,
                   currentUserId: currentUserId,
                   onRefresh: () => setState((){}),
                 ),
@@ -187,6 +205,8 @@ class _MeetingListState extends State<_MeetingList> {
           isJoined = isHost || meeting['student_id'] == widget.currentUserId;
         }
 
+        final isPast = meeting['meeting_date'] != null && DateTime.parse(meeting['meeting_date']).isBefore(DateTime.now());
+
         final dateStr = meeting['meeting_date'] != null 
           ? DateTime.parse(meeting['meeting_date']).toLocal().toString().substring(0, 16) 
           : 'Unknown Date';
@@ -227,9 +247,57 @@ class _MeetingListState extends State<_MeetingList> {
                         ),
                       ),
                     ),
-                    Text(
-                      dateStr,
-                      style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          dateStr,
+                          style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                        if (isHost) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Delete Meeting'),
+                                  content: const Text('Are you sure you want to delete this meeting?'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirm == true) {
+                                try {
+                                  await _meetingService.deleteMeeting(meetingIdStr);
+                                  widget.onRefresh();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Meeting deleted successfully.')),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e')),
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -257,7 +325,22 @@ class _MeetingListState extends State<_MeetingList> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (isWorkshop && !isHost && !isRegistered)
+                if (isPast)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade200,
+                        foregroundColor: Colors.grey.shade500,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Ended', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  )
+                else if (isWorkshop && !isHost && !isRegistered)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(

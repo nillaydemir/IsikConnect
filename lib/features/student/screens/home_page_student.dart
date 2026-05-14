@@ -10,6 +10,9 @@ import '../../shared/screens/forum_screen.dart';
 import '../../shared/screens/meetings_screen.dart';
 import '../../forum/services/forum_service.dart';
 import '../../forum/models/forum_post_model.dart';
+import '../../../core/services/meeting_service.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/services/message_service.dart';
 
 class HomePageStudent extends StatefulWidget {
   const HomePageStudent({super.key});
@@ -116,9 +119,37 @@ class _HomePageStudentState extends State<HomePageStudent> {
           elevation: 0,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
-          items: const [
+          items: [
             BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_rounded), label: 'Chat'),
+            BottomNavigationBarItem(
+              icon: StreamBuilder<int>(
+                stream: MessageService().getUnreadCountStream(),
+                builder: (context, snapshot) {
+                  final count = snapshot.data ?? 0;
+                  return Stack(
+                    children: [
+                      const Icon(Icons.chat_bubble_rounded),
+                      if (count > 0)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                            constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                            child: Text(
+                              '$count',
+                              style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              label: 'Chat',
+            ),
             BottomNavigationBarItem(icon: Icon(Icons.forum_rounded), label: 'Forum'),
             BottomNavigationBarItem(icon: Icon(Icons.videocam_rounded), label: 'Meetings'),
             BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
@@ -129,8 +160,141 @@ class _HomePageStudentState extends State<HomePageStudent> {
   }
 }
 
-class _HomeTab extends StatelessWidget {
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  List<Map<String, dynamic>> _upcomingSessions = [];
+  List<Map<String, dynamic>> _workshops = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = CurrentSession().user;
+      final meetings = await MeetingService().getMeetings();
+      final now = DateTime.now();
+      
+      setState(() {
+        _upcomingSessions = meetings.where((m) {
+          if (m['meeting_date'] == null) return false;
+          final date = DateTime.parse(m['meeting_date']);
+          if (date.isBefore(now)) return false;
+          
+          final isRegisteredWorkshop = m['is_registered'] == true;
+          final isOneOnOne = m['student_id'] == user?.id;
+          
+          return isRegisteredWorkshop || isOneOnOne;
+        }).toList();
+
+        _workshops = meetings.where((m) {
+          if (m['meeting_date'] == null) return false;
+          final date = DateTime.parse(m['meeting_date']);
+          if (date.isBefore(now)) return false;
+          
+          final isRegisteredWorkshop = m['is_registered'] == true;
+          return m['meeting_type'] == 'Workshop' && !isRegisteredWorkshop;
+        }).toList();
+      });
+    } catch (e) {
+      print('Error fetching data: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildCardSection(String title, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Center(
+        child: Text(
+          title,
+          style: const TextStyle(color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpcomingSessionsList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: _upcomingSessions.length > 3 ? 3 : _upcomingSessions.length,
+      itemBuilder: (context, index) {
+        final meeting = _upcomingSessions[index];
+        final isWorkshop = meeting['meeting_type'] == 'Workshop';
+        final date = DateTime.parse(meeting['meeting_date']).toLocal();
+        final dateStr = '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+
+        return Card(
+          elevation: 0,
+          color: Colors.white,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: isWorkshop ? Colors.orange.shade50 : Colors.blue.shade50,
+              child: Icon(
+                isWorkshop ? Icons.group : Icons.person,
+                color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
+              ),
+            ),
+            title: Text(
+              meeting['title'] ?? 'Meeting',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Text(
+              dateStr,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isWorkshop ? Colors.orange.shade50 : Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                meeting['meeting_type'] ?? '',
+                style: TextStyle(
+                  color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,52 +339,16 @@ class _HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           
-          // Next Session Card
-          const Text('Next Session', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          // Upcoming Sessions
+          const Text('Upcoming Sessions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color.fromARGB(255, 38, 55, 140), Color.fromARGB(255, 60, 80, 180)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(color: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text('1-on-1 Mentorship', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(height: 16),
-                const Text('Career Guidance & Portfolio Review', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Icon(Icons.access_time_rounded, color: Colors.white70, size: 16),
-                    const SizedBox(width: 8),
-                    const Text('Today, 2:00 PM', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                    const Spacer(),
-                    CircleAvatar(
-                      radius: 14,
-                      backgroundColor: Colors.white,
-                      child: Text('M', style: TextStyle(color: Colors.blue.shade900, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_upcomingSessions.isEmpty)
+            _buildCardSection('No upcoming sessions.', Icons.event_available)
+          else
+            _buildUpcomingSessionsList(),
+
           const SizedBox(height: 32),
           
           // My Mentor Section embedded
@@ -234,45 +362,59 @@ class _HomeTab extends StatelessWidget {
           const SizedBox(height: 32),
           const Text('Recommended Workshops', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 160,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: 3,
-              itemBuilder: (context, index) {
-                return Container(
-                  width: 240,
-                  margin: const EdgeInsets.only(right: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.shade200),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(12),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_workshops.isEmpty)
+            _buildCardSection('No upcoming workshops.', Icons.event_available)
+          else
+            SizedBox(
+              height: 160,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _workshops.length,
+                itemBuilder: (context, index) {
+                  final workshop = _workshops[index];
+                  final date = DateTime.parse(workshop['meeting_date']).toLocal();
+                  final dateStr = '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+                  
+                  return Container(
+                    width: 240,
+                    margin: const EdgeInsets.only(right: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.lightbulb_outline, color: Colors.orange.shade700, size: 20),
                         ),
-                        child: Icon(Icons.lightbulb_outline, color: Colors.orange.shade700, size: 20),
-                      ),
-                      const Spacer(),
-                      const Text('Flutter State Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 4),
-                      Text('Tomorrow, 5:00 PM', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                    ],
-                  ),
-                );
-              },
+                        const Spacer(),
+                        Text(
+                          workshop['title'] ?? 'Workshop', 
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), 
+                          maxLines: 1, 
+                          overflow: TextOverflow.ellipsis
+                        ),
+                        const SizedBox(height: 4),
+                        Text(dateStr, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -443,12 +585,11 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                 if (studentId == null) return;
 
                 try {
-                  await Supabase.instance.client.from('reviews').insert({
-                    'mentor_id': _matchedMentor!.id,
-                    'student_id': studentId,
-                    'rating': selectedRating,
-                    'comment': commentController.text.trim(),
-                  });
+                  await ApiService().rateMentor(
+                    _matchedMentor!.id,
+                    selectedRating,
+                    commentController.text.trim(),
+                  );
 
                   if (context.mounted) {
                     Navigator.pop(context);

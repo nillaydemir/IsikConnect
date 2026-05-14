@@ -27,7 +27,11 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
 
   Future<void> initAgora() async {
     // retrieve permissions
-    await [Permission.microphone, Permission.camera].request();
+    try {
+      await [Permission.microphone, Permission.camera].request();
+    } catch (e) {
+      debugPrint("Warning: Could not request permissions: $e");
+    }
 
     //create the engine
     _engine = createAgoraRtcEngine();
@@ -60,6 +64,12 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
           debugPrint('[onTokenPrivilegeWillExpire] connection: ${connection.toJson()}, token: $token');
         },
+        onError: (ErrorCodeType err, String msg) {
+          debugPrint('[Agora Error] $err: $msg');
+        },
+        onConnectionStateChanged: (RtcConnection connection, ConnectionStateType state, ConnectionChangedReasonType reason) {
+          debugPrint('[ConnectionStateChanged] state: $state, reason: $reason');
+        },
       ),
     );
 
@@ -71,7 +81,13 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       token: AgoraConstants.tempToken,
       channelId: widget.channelName,
       uid: 0,
-      options: const ChannelMediaOptions(),
+      options: const ChannelMediaOptions(
+        autoSubscribeVideo: true,
+        autoSubscribeAudio: true,
+        publishCameraTrack: true,
+        publishMicrophoneTrack: true,
+        clientRoleType: ClientRoleType.clientRoleBroadcaster,
+      ),
     );
   }
 

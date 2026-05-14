@@ -26,6 +26,7 @@ class _ProfilePageState extends State<ProfilePage> {
   );
   bool _isEditing = false;
   bool _isLoading = false;
+  List<Map<String, dynamic>> _reviews = [];
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -53,11 +54,13 @@ class _ProfilePageState extends State<ProfilePage> {
     if (widget.targetUser != null) {
       _user = widget.targetUser!;
       _resetControllers();
+      _fetchReviews();
     } else if (widget.targetUserId != null) {
       _fetchUserById();
     } else {
       _user = CurrentSession().user!;
       _resetControllers();
+      _fetchReviews();
     }
   }
 
@@ -73,6 +76,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _user = AppUser.fromJson(response);
         _resetControllers();
+        _fetchReviews();
       });
     } catch (e) {
       if (mounted) {
@@ -82,6 +86,43 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchReviews() async {
+    if (_user.role != 'mentor') {
+      print('Not a mentor, skipping reviews fetch. Role: ${_user.role}');
+      return;
+    }
+
+    try {
+      print('Fetching reviews for mentor ID: ${_user.id}');
+      // Try to fetch via students join first, if that fails, try direct users join
+      final response = await Supabase.instance.client
+          .from('reviews')
+          .select('*, students(users(first_name, last_name, profile_image_url))')
+          .eq('mentor_id', _user.id)
+          .order('created_at', ascending: false);
+
+      print('Reviews fetched: ${response.length}');
+      setState(() {
+        _reviews = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      print('Error fetching reviews: $e');
+      // Fallback for cases where FK might be different
+      try {
+        final response = await Supabase.instance.client
+            .from('reviews')
+            .select('*, users!student_id(first_name, last_name, profile_image_url)')
+            .eq('mentor_id', _user.id)
+            .order('created_at', ascending: false);
+        setState(() {
+          _reviews = List<Map<String, dynamic>>.from(response);
+        });
+      } catch (e2) {
+         print('Fallback fetch also failed: $e2');
+      }
     }
   }
 
@@ -277,54 +318,134 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       child: const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
-                  if (!_isOwnProfile) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              // Action for Schedule Meeting
-                            },
-                            icon: const Icon(Icons.calendar_today),
-                            label: const Text('Schedule'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ChatDetailScreen(targetUser: _user),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.message),
-                            label: const Text('Message'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor.withValues(alpha: 0.1),
-                              foregroundColor: primaryColor,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                          ),
-                        ),
-                      ],
+                    if (_user.role == 'mentor') ...[
+                      const SizedBox(height: 32),
+                      _buildReviewsSection(primaryColor),
+                    ],
+                  ],
+                ),
+              ),
+      );
+    }
+
+    Widget _buildReviewsSection(Color primaryColor) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.star_outline_rounded, size: 20, color: primaryColor),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Student Reviews',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ],
-                ],
-              ),
+                ),
+                if (_reviews.isNotEmpty)
+                  Text(
+                    '${_reviews.length} total',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+              ],
             ),
-    );
-  }
+            const SizedBox(height: 20),
+            if (_reviews.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'No reviews yet',
+                    style: TextStyle(color: Colors.grey[400], fontStyle: FontStyle.italic),
+                  ),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _reviews.length,
+                separatorBuilder: (context, index) => const Divider(height: 32),
+                itemBuilder: (context, index) {
+                  final review = _reviews[index];
+                  // Handle both nested student->user join and direct user join
+                  Map<String, dynamic>? userData;
+                  if (review['students'] != null && review['students']['users'] != null) {
+                    userData = review['students']['users'];
+                  } else if (review['users'] != null) {
+                    userData = review['users'];
+                  }
+                  
+                  final studentName = userData != null 
+                      ? '${userData['first_name']} ${userData['last_name']}'
+                      : 'Student';
+                  final rating = review['rating'] as int;
+                  final comment = review['comment'] as String?;
+                  final date = DateTime.parse(review['created_at']).toLocal();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: primaryColor.withValues(alpha: 0.1),
+                                backgroundImage: userData?['profile_image_url'] != null 
+                                    ? NetworkImage(userData!['profile_image_url']) 
+                                    : null,
+                                child: userData?['profile_image_url'] == null 
+                                    ? Text(studentName[0].toUpperCase(), style: TextStyle(fontSize: 10, color: primaryColor))
+                                    : null,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(studentName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            ],
+                          ),
+                          Text(
+                            '${date.day}/${date.month}/${date.year}',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: List.generate(5, (starIndex) => Icon(
+                          Icons.star_rounded,
+                          size: 14,
+                          color: starIndex < rating ? Colors.amber : Colors.grey[200],
+                        )),
+                      ),
+                      if (comment != null && comment.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          comment,
+                          style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+          ],
+        ),
+      );
+    }
 
   Widget _buildHeader(Color primaryColor) {
     return Column(
@@ -380,6 +501,24 @@ class _ProfilePageState extends State<ProfilePage> {
           _user.role.toUpperCase(),
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600], letterSpacing: 1.2),
         ),
+        if (_user.role == 'mentor' && _reviews.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
+              const SizedBox(width: 4),
+              Text(
+                (_reviews.fold<double>(0, (prev, r) => prev + (r['rating'] as int)) / _reviews.length).toStringAsFixed(1),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              Text(
+                ' (${_reviews.length} reviews)',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
