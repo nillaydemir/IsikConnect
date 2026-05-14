@@ -166,11 +166,13 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 const SizedBox(height: 20),
 
                 // Title
-                Text(
-                  widget.post.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, height: 1.3),
-                ),
-                const SizedBox(height: 12),
+                if (widget.post.title.isNotEmpty) ...[
+                  Text(
+                    widget.post.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, height: 1.3),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // Q&A Solved Badge
                 if (isQnA && _isSolved) ...[
@@ -240,18 +242,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             ],
                           ),
                         const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _toggleParticipation,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _isParticipating ? Colors.white : primaryColor,
-                              foregroundColor: _isParticipating ? Colors.red : Colors.white,
-                              elevation: 0,
-                              side: _isParticipating ? const BorderSide(color: Colors.red) : null,
-                            ),
-                            child: Text(_isParticipating ? 'Leave Workshop' : 'Join Workshop'),
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final bool isPast = widget.post.eventDate != null && widget.post.eventDate!.isBefore(DateTime.now());
+                            return SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: isPast ? null : _toggleParticipation,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isPast ? Colors.grey.shade300 : (_isParticipating ? Colors.white : primaryColor),
+                                  foregroundColor: isPast ? Colors.grey.shade600 : (_isParticipating ? Colors.red : Colors.white),
+                                  elevation: 0,
+                                  side: (!isPast && _isParticipating) ? const BorderSide(color: Colors.red) : null,
+                                ),
+                                child: Text(isPast ? 'Workshop Ended' : (_isParticipating ? 'Leave Workshop' : 'Join Workshop')),
+                              ),
+                            );
+                          }
                         )
                       ],
                     ),
