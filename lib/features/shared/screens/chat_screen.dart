@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/message_service.dart';
+import '../../../core/services/matching_service.dart';
 import 'dart:async';
 
 class ConversationItem {
@@ -10,12 +11,14 @@ class ConversationItem {
   final String? lastMessage;
   final DateTime? lastMessageTime;
   final int unreadCount;
+  final bool isActiveMatch;
 
   ConversationItem({
     required this.targetUser,
     this.lastMessage,
     this.lastMessageTime,
     this.unreadCount = 0,
+    this.isActiveMatch = true,
   });
 }
 
@@ -37,9 +40,11 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _fetchConversations();
     // Listen for real-time changes
-    _conversationsSubscription = MessageService().getConversationsChangedStream().listen((_) {
-      _fetchConversations(showLoading: false);
-    });
+    _conversationsSubscription = MessageService()
+        .getConversationsChangedStream()
+        .listen((_) {
+          _fetchConversations(showLoading: false);
+        });
   }
 
   @override
@@ -54,12 +59,11 @@ class _ChatScreenState extends State<ChatScreen> {
       final myId = CurrentSession().user!.id;
       final myRole = CurrentSession().user!.role;
 
-      // 1. Fetch active matches
+      // 1. Fetch ALL matches (active and cancelled)
       final matchesResponse = await _supabase
           .from('matches')
           .select()
-          .or('student_id.eq.$myId,mentor_id.eq.$myId')
-          .eq('status', 'active');
+          .or('student_id.eq.$myId,mentor_id.eq.$myId');
 
       if (matchesResponse.isEmpty) {
         setState(() {
@@ -69,17 +73,23 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
-      // 2. Extract IDs of the other users
-      List<String> otherUserIds = [];
+      // 2. Extract IDs of the other users and their active status
+      Map<String, bool> userActiveStatus = {};
       for (var match in matchesResponse) {
-        if (match['student_id'] == myId) {
-          otherUserIds.add(match['mentor_id']);
+        String otherId = match['student_id'] == myId
+            ? match['mentor_id']
+            : match['student_id'];
+        bool isActive = match['status'] == 'active';
+
+        // If we already saw this user as active, keep it active
+        if (userActiveStatus.containsKey(otherId)) {
+          userActiveStatus[otherId] = userActiveStatus[otherId]! || isActive;
         } else {
-          otherUserIds.add(match['student_id']);
+          userActiveStatus[otherId] = isActive;
         }
       }
 
-      if (otherUserIds.isEmpty) {
+      if (userActiveStatus.isEmpty) {
         setState(() {
           _conversations = [];
           _isLoading = false;
@@ -91,7 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final usersResponse = await _supabase
           .from('users')
           .select()
-          .inFilter('id', otherUserIds);
+          .inFilter('id', userActiveStatus.keys.toList());
 
       final users = usersResponse.map((u) => AppUser.fromJson(u)).toList();
 
@@ -102,7 +112,9 @@ class _ChatScreenState extends State<ChatScreen> {
           final msgResponse = await _supabase
               .from('messages')
               .select()
-              .or('and(sender_id.eq.$myId,receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.$myId)')
+              .or(
+                'and(sender_id.eq.$myId,receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.$myId)',
+              )
               .order('created_at', ascending: false)
               .limit(1)
               .maybeSingle();
@@ -124,20 +136,29 @@ class _ChatScreenState extends State<ChatScreen> {
                   .eq('is_read', false);
               unreadCount = (unreadResponse as List).length;
             } catch (e) {
-               // Ignore if 'is_read' column doesn't exist yet
-               debugPrint('is_read column may not exist: $e');
+              // Ignore if 'is_read' column doesn't exist yet
+              debugPrint('is_read column may not exist: $e');
             }
           }
 
-          convos.add(ConversationItem(
-            targetUser: user,
-            lastMessage: lastMsg,
-            lastMessageTime: lastMsgTime,
-            unreadCount: unreadCount,
-          ));
+          final isActive = userActiveStatus[user.id] ?? false;
+
+          // If match is cancelled and there are no messages, do not show it
+          if (!isActive && lastMsg == null) {
+            continue;
+          }
+
+          convos.add(
+            ConversationItem(
+              targetUser: user,
+              lastMessage: lastMsg,
+              lastMessageTime: lastMsgTime,
+              unreadCount: unreadCount,
+              isActiveMatch: isActive,
+            ),
+          );
         } catch (e) {
           debugPrint('Error fetching last message for ${user.id}: $e');
-          convos.add(ConversationItem(targetUser: user));
         }
       }
 
@@ -183,7 +204,13 @@ class _ChatScreenState extends State<ChatScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            title: const Text('Chats', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+            title: const Text(
+              'Chats',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
             backgroundColor: Colors.white,
             elevation: 0.5,
             centerTitle: false,
@@ -200,16 +227,27 @@ class _ChatScreenState extends State<ChatScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey.shade300),
+                    Icon(
+                      Icons.chat_bubble_outline,
+                      size: 64,
+                      color: Colors.grey.shade300,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'No conversations yet.',
-                      style: TextStyle(fontSize: 18, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Match with a mentor or student to start chatting!',
-                      style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade400,
+                      ),
                     ),
                   ],
                 ),
@@ -217,85 +255,107 @@ class _ChatScreenState extends State<ChatScreen> {
             )
           else
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final convo = _conversations[index];
-                  final targetUser = convo.targetUser;
-                  
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: CircleAvatar(
-                      radius: 26,
-                      backgroundColor: primaryColor.withValues(alpha: 0.1),
-                      backgroundImage: targetUser.profileImageUrl != null
-                          ? NetworkImage(targetUser.profileImageUrl!)
-                          : null,
-                      child: targetUser.profileImageUrl == null
-                          ? Text(
-                              (targetUser.name ?? 'U')[0].toUpperCase(),
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 20),
-                            )
-                          : null,
-                    ),
-                    title: Text(
-                      targetUser.name ?? 'Unknown User',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    subtitle: Text(
-                      convo.lastMessage ?? 'Tap to start conversation',
-                      style: TextStyle(
-                        color: convo.unreadCount > 0 ? Colors.black87 : Colors.grey.shade600, 
-                        fontSize: 13, 
-                        fontWeight: convo.unreadCount > 0 ? FontWeight.bold : FontWeight.normal
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (convo.lastMessageTime != null)
-                          Text(
-                            _formatTime(convo.lastMessageTime!),
-                            style: TextStyle(
-                              color: convo.unreadCount > 0 ? primaryColor : Colors.grey.shade500,
-                              fontSize: 12,
-                              fontWeight: convo.unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        const SizedBox(height: 4),
-                        if (convo.unreadCount > 0)
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              '${convo.unreadCount}',
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final convo = _conversations[index];
+                final targetUser = convo.targetUser;
+
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  leading: CircleAvatar(
+                    radius: 26,
+                    backgroundColor: primaryColor.withValues(alpha: 0.1),
+                    backgroundImage: targetUser.profileImageUrl != null
+                        ? NetworkImage(targetUser.profileImageUrl!)
+                        : null,
+                    child: targetUser.profileImageUrl == null
+                        ? Text(
+                            (targetUser.name ?? 'U')[0].toUpperCase(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                              fontSize: 20,
                             ),
                           )
-                        else
-                          const SizedBox(height: 20), // Placeholder for alignment
-                      ],
+                        : null,
+                  ),
+                  title: Text(
+                    targetUser.name ?? 'Unknown User',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatDetailScreen(targetUser: targetUser),
+                  ),
+                  subtitle: Text(
+                    convo.lastMessage ?? 'Tap to start conversation',
+                    style: TextStyle(
+                      color: convo.unreadCount > 0
+                          ? Colors.black87
+                          : Colors.grey.shade600,
+                      fontSize: 13,
+                      fontWeight: convo.unreadCount > 0
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (convo.lastMessageTime != null)
+                        Text(
+                          _formatTime(convo.lastMessageTime!),
+                          style: TextStyle(
+                            color: convo.unreadCount > 0
+                                ? primaryColor
+                                : Colors.grey.shade500,
+                            fontSize: 12,
+                            fontWeight: convo.unreadCount > 0
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
                         ),
-                      ).then((_) {
-                        // Refresh the list when coming back from chat detail
-                        _fetchConversations();
-                      });
-                    },
-                  );
-                },
-                childCount: _conversations.length,
-              ),
+                      const SizedBox(height: 4),
+                      if (convo.unreadCount > 0)
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${convo.unreadCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox(height: 20), // Placeholder for alignment
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatDetailScreen(
+                          targetUser: targetUser,
+                          isActiveMatch: convo.isActiveMatch,
+                        ),
+                      ),
+                    ).then((_) {
+                      // Refresh the list when coming back from chat detail
+                      _fetchConversations();
+                    });
+                  },
+                );
+              }, childCount: _conversations.length),
             ),
         ],
       ),
@@ -305,7 +365,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
 class ChatDetailScreen extends StatefulWidget {
   final AppUser targetUser;
-  const ChatDetailScreen({super.key, required this.targetUser});
+  final bool isActiveMatch;
+  const ChatDetailScreen({
+    super.key,
+    required this.targetUser,
+    this.isActiveMatch = true,
+  });
 
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
@@ -315,7 +380,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final _supabase = Supabase.instance.client;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  
+
   late final Stream<List<Map<String, dynamic>>> _messagesStream;
   late final String _myId;
 
@@ -323,21 +388,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void initState() {
     super.initState();
     _myId = CurrentSession().user!.id;
-    
+
     // Listen to messages table
     _messagesStream = _supabase
         .from('messages')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: true)
         .map((events) {
-      // Filter client-side for our conversation
-      return events.where((msg) {
-        final sender = msg['sender_id'];
-        final receiver = msg['receiver_id'];
-        return (sender == _myId && receiver == widget.targetUser.id) ||
-               (sender == widget.targetUser.id && receiver == _myId);
-      }).toList();
-    });
+          // Filter client-side for our conversation
+          return events.where((msg) {
+            final sender = msg['sender_id'];
+            final receiver = msg['receiver_id'];
+            return (sender == _myId && receiver == widget.targetUser.id) ||
+                (sender == widget.targetUser.id && receiver == _myId);
+          }).toList();
+        });
 
     _markMessagesAsRead();
   }
@@ -351,7 +416,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           .eq('receiver_id', _myId)
           .eq('is_read', false);
     } catch (e) {
-      debugPrint('Error marking messages as read (column might not exist yet): $e');
+      debugPrint(
+        'Error marking messages as read (column might not exist yet): $e',
+      );
     }
   }
 
@@ -362,12 +429,157 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     super.dispose();
   }
 
+  void _showEndMentorshipDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eşleşmeyi Bitir'),
+        content: Text(
+          '${widget.targetUser.name} ile olan eşleşmenizi bitirmek istediğinize emin misiniz? Bu işlem geri alınamaz.\n\nNot: 1 yıl içerisinde en fazla 2 kez eşleşme değiştirme hakkınız bulunmaktadır.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _endMentorship();
+            },
+            child: const Text(
+              'Eşleşmeyi Bitir',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteChatDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sohbeti Sil'),
+        content: const Text(
+          'Bu sohbeti tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm mesaj geçmişi silinir.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteChat();
+            },
+            child: const Text(
+              'Sohbeti Sil',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteChat() async {
+    try {
+      await _supabase
+          .from('messages')
+          .delete()
+          .or(
+            'and(sender_id.eq.$_myId,receiver_id.eq.${widget.targetUser.id}),and(sender_id.eq.${widget.targetUser.id},receiver_id.eq.$_myId)',
+          );
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sohbet başarıyla silindi.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error deleting chat: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sohbet silinirken bir hata oluştu.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _endMentorship() async {
+    try {
+      final myRole = CurrentSession().user!.role;
+      final studentId = myRole == 'mentor' ? widget.targetUser.id : _myId;
+      final mentorId = myRole == 'mentor' ? _myId : widget.targetUser.id;
+
+      // Check limit: 2 changes per year
+      final oneYearAgo = DateTime.now()
+          .subtract(const Duration(days: 365))
+          .toIso8601String();
+      final cancelledMatches = await _supabase
+          .from('matches')
+          .select('id')
+          .eq(myRole == 'mentor' ? 'mentor_id' : 'student_id', _myId)
+          .eq('status', 'cancelled')
+          .gte('created_at', oneYearAgo);
+
+      if ((cancelledMatches as List).length >= 2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Limit aşıldı: 1 yıl içerisinde en fazla 2 kez eşleşme değiştirebilirsiniz.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      await MatchingService().cancelMatch(studentId, mentorId);
+
+      // Also send a system message to the chat
+      await _supabase.from('messages').insert({
+        'sender_id': _myId,
+        'receiver_id': widget.targetUser.id,
+        'content':
+            'Eşleşme ${myRole == 'mentor' ? 'mentor' : 'öğrenci'} tarafından sonlandırıldı.',
+        'is_read': false,
+      });
+
+      if (mounted) {
+        Navigator.pop(context); // Go back to chats list
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Eşleşme başarıyla sonlandırıldı.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error ending mentorship: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Eşleşme sonlandırılırken bir hata oluştu.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
     _messageController.clear();
-    
+
     try {
       await _supabase.from('messages').insert({
         'sender_id': _myId,
@@ -376,14 +588,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'is_read': false,
         // created_at is handled by DB default now()
       });
-      
+
       // Auto-scroll to bottom after sending
       _scrollToBottom();
     } catch (e) {
       debugPrint('Error sending message: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send message'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('Failed to send message'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -421,15 +636,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               child: widget.targetUser.profileImageUrl == null
                   ? Text(
                       (widget.targetUser.name ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 14),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                        fontSize: 14,
+                      ),
                     )
                   : null,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                widget.targetUser.name ?? 'Unknown User', 
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 16),
+                widget.targetUser.name ?? 'Unknown User',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  fontSize: 16,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -439,15 +662,38 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline, color: Colors.black87),
-            onPressed: () {},
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.black87),
+            onSelected: (value) {
+              if (value == 'end_mentorship') {
+                _showEndMentorshipDialog();
+              } else if (value == 'delete_chat') {
+                _showDeleteChatDialog();
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              if (widget.isActiveMatch)
+                const PopupMenuItem(
+                  value: 'end_mentorship',
+                  child: Text(
+                    'Mentorluğu Bitir',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                )
+              else
+                const PopupMenuItem(
+                  value: 'delete_chat',
+                  child: Text(
+                    'Sohbeti Sil',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
       body: Column(
         children: [
-          
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _messagesStream,
@@ -455,13 +701,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                
+
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
-                
+
                 final messages = snapshot.data ?? [];
-                
+
                 if (messages.isEmpty) {
                   return Center(
                     child: Text(
@@ -472,7 +718,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 }
 
                 // Schedule scroll to bottom when new messages arrive
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _scrollToBottom(),
+                );
 
                 return ListView.builder(
                   controller: _scrollController,
@@ -481,56 +729,86 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   itemBuilder: (context, index) {
                     final msg = messages[index];
                     final isMe = msg['sender_id'] == _myId;
-                    return _buildMessageBubble(msg['content'], isMe, primaryColor);
+                    return _buildMessageBubble(
+                      msg['content'],
+                      isMe,
+                      primaryColor,
+                    );
                   },
                 );
               },
             ),
           ),
-          
-          // Chat Input
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _messageController,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendMessage(),
-                        decoration: const InputDecoration(
-                          hintText: 'Type a message...',
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  CircleAvatar(
-                    backgroundColor: primaryColor,
-                    radius: 24,
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white, size: 18),
-                      onPressed: _sendMessage,
-                    ),
+
+          // Chat Input or Disabled Message
+          if (widget.isActiveMatch)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
                   ),
                 ],
               ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendMessage(),
+                          decoration: const InputDecoration(
+                            hintText: 'Type a message...',
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    CircleAvatar(
+                      backgroundColor: primaryColor,
+                      radius: 24,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.send,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        onPressed: _sendMessage,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+              color: Colors.grey[200],
+              child: const SafeArea(
+                top: false,
+                child: Text(
+                  'Bu eşleşme sonlandırıldı. Artık mesaj gönderemezsiniz.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -542,18 +820,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
         decoration: BoxDecoration(
           color: isMe ? primaryColor : Colors.white,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
-            bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
-            bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+            bottomLeft: isMe
+                ? const Radius.circular(16)
+                : const Radius.circular(4),
+            bottomRight: isMe
+                ? const Radius.circular(4)
+                : const Radius.circular(16),
           ),
           boxShadow: [
             if (!isMe)
-              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5, offset: const Offset(0, 2))
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
           ],
         ),
         child: Text(

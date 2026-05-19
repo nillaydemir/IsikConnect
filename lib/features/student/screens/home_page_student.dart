@@ -13,6 +13,7 @@ import '../../forum/models/forum_post_model.dart';
 import '../../../core/services/meeting_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/message_service.dart';
+import 'dart:async';
 
 class HomePageStudent extends StatefulWidget {
   const HomePageStudent({super.key});
@@ -433,11 +434,42 @@ class _MyMentorTabState extends State<_MyMentorTab> {
   Mentor? _matchedMentor;
   bool _isLoading = false;
   String? _errorMessage;
+  StreamSubscription? _studentSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentStudentAndMatch();
+    
+    final user = CurrentSession().user;
+    if (user != null) {
+      _studentSubscription = Supabase.instance.client
+          .from('students')
+          .stream(primaryKey: ['id'])
+          .eq('id', user.id)
+          .listen((data) {
+        if (data.isNotEmpty) {
+           final studentData = data.first;
+           if (studentData['matched_mentor_id'] == null && _matchedMentor != null) {
+             // Match was cancelled
+             if (mounted) {
+               setState(() {
+                 _matchedMentor = null;
+               });
+             }
+           } else if (studentData['matched_mentor_id'] != null && _matchedMentor == null) {
+             // New match found
+             _fetchExistingMatch();
+           }
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _studentSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadCurrentStudentAndMatch() async {
@@ -472,7 +504,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
           .eq('id', _currentStudent!.id)
           .maybeSingle();
 
-      if (response != null && response['mentors'] != null) {
+      if (response != null && response['matched_mentor_id'] != null && response['mentors'] != null) {
         final mentorData = response['mentors'];
         final userData = mentorData['users'];
         final mentorId = mentorData['id'];
