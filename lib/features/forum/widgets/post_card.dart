@@ -3,17 +3,62 @@ import 'package:intl/intl.dart';
 import '../models/forum_post_model.dart';
 import '../services/forum_service.dart';
 
-class PostCard extends StatelessWidget {
+class PostCard extends StatefulWidget {
   final ForumPost post;
-  final VoidCallback onTap;
+  final Future<void> Function() onTap;
 
   const PostCard({super.key, required this.post, required this.onTap});
 
   @override
+  State<PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<PostCard> {
+  late bool _isLiked;
+  late int _likeCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLiked = widget.post.isLikedByMe;
+    _likeCount = widget.post.likeCount;
+  }
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post != widget.post) {
+      _isLiked = widget.post.isLikedByMe;
+      _likeCount = widget.post.likeCount;
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    final bool previousState = _isLiked;
+    setState(() {
+      _isLiked = !_isLiked;
+      _likeCount += _isLiked ? 1 : -1;
+      widget.post.isLikedByMe = _isLiked;
+      widget.post.likeCount = _likeCount;
+    });
+    try {
+      await ForumService().toggleLike(widget.post.id, previousState);
+    } catch (e) {
+      setState(() {
+        _isLiked = previousState;
+        _likeCount += _isLiked ? 1 : -1;
+        widget.post.isLikedByMe = _isLiked;
+        widget.post.likeCount = _likeCount;
+      });
+      debugPrint('Like error: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
-    final bool isWorkshop = post.category == 'Workshops';
-    final bool isQnA = post.category == 'Q&A';
+    final bool isWorkshop = widget.post.category == 'Workshops';
+    final bool isQnA = widget.post.category == 'Q&A';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -22,18 +67,25 @@ class PostCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        onTap: () async {
+          await widget.onTap();
+          // Re-sync state from widget.post which might have been mutated in detail screen
+          setState(() {
+            _isLiked = widget.post.isLikedByMe;
+            _likeCount = widget.post.likeCount;
+          });
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Workshop Image Cover (if any)
-            if (isWorkshop && post.imageUrl != null)
+            if (isWorkshop && widget.post.imageUrl != null)
               Container(
                 width: double.infinity,
                 height: 140,
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: NetworkImage(post.imageUrl!),
+                    image: NetworkImage(widget.post.imageUrl!),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -51,10 +103,10 @@ class PostCard extends StatelessWidget {
                       CircleAvatar(
                         radius: 16,
                         backgroundColor: primaryColor.withValues(alpha: 0.1),
-                        backgroundImage: post.authorProfileImageUrl != null ? NetworkImage(post.authorProfileImageUrl!) : null,
-                        child: post.authorProfileImageUrl == null 
+                        backgroundImage: widget.post.authorProfileImageUrl != null ? NetworkImage(widget.post.authorProfileImageUrl!) : null,
+                        child: widget.post.authorProfileImageUrl == null 
                           ? Text(
-                              post.authorName.substring(0, 1).toUpperCase(),
+                              widget.post.authorName.substring(0, 1).toUpperCase(),
                               style: const TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
                             )
                           : null,
@@ -65,22 +117,22 @@ class PostCard extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              if (post.authorRole == 'mentor') ...[
+                              Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              if (widget.post.authorRole == 'mentor') ...[
                                 const SizedBox(width: 4),
                                 const Icon(Icons.verified, color: Colors.blue, size: 14),
                               ]
                             ],
                           ),
                           Text(
-                            DateFormat('MMM d, yyyy').format(post.createdAt),
+                            DateFormat('MMM d, yyyy').format(widget.post.createdAt),
                             style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                           ),
                         ],
                       ),
                       const Spacer(),
                       // Q&A Solved Badge
-                      if (isQnA && post.isSolved)
+                      if (isQnA && widget.post.isSolved)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -101,44 +153,46 @@ class PostCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   
                   // Post Title
-                  Text(
-                    post.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
+                  if (widget.post.title.isNotEmpty) ...[
+                    Text(
+                      widget.post.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   
                   // Post Content / Description
                   Text(
-                    post.content,
+                    widget.post.content,
                     style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
                     maxLines: isWorkshop ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   
                   // Workshop specifics
-                  if (isWorkshop && post.eventDate != null) ...[
+                  if (isWorkshop && widget.post.eventDate != null) ...[
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         const Icon(Icons.event, size: 16, color: primaryColor),
                         const SizedBox(width: 4),
                         Text(
-                          DateFormat('MMM d, h:mm a').format(post.eventDate!),
+                          DateFormat('MMM d, h:mm a').format(widget.post.eventDate!),
                           style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 13),
                         ),
                         const Spacer(),
-                        if (post.participantLimit != null)
-                           Text('${post.participantCount}/${post.participantLimit} Joined', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        if (widget.post.participantLimit != null)
+                           Text('${widget.post.participantCount}/${widget.post.participantLimit} Joined', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                       ],
                     ),
                   ],
 
                   // Tags
-                  if (post.tags.isNotEmpty) ...[
+                  if (widget.post.tags.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
-                      children: post.tags.map((tag) => Container(
+                      children: widget.post.tags.map((tag) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
@@ -155,26 +209,32 @@ class PostCard extends StatelessWidget {
                   Row(
                     children: [
                       InkWell(
-                        onTap: () => ForumService().toggleLike(post.id, post.isLikedByMe),
+                        onTap: _toggleLike,
                         borderRadius: BorderRadius.circular(20),
                         child: Padding(
                           padding: const EdgeInsets.all(4.0),
                           child: Row(
                             children: [
                               Icon(
-                                post.isLikedByMe ? Icons.thumb_up : Icons.thumb_up_alt_outlined, 
+                                _isLiked ? Icons.thumb_up : Icons.thumb_up_alt_outlined, 
                                 size: 18, 
-                                color: post.isLikedByMe ? primaryColor : Colors.grey.shade600
+                                color: _isLiked ? primaryColor : Colors.grey.shade600
                               ),
                               const SizedBox(width: 4),
-                              Text('${post.likeCount}', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                              Text('$_likeCount', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
                             ],
                           ),
                         ),
                       ),
                       const SizedBox(width: 16),
                       InkWell(
-                        onTap: onTap, // Opens post detail for comments
+                        onTap: () async {
+                          await widget.onTap();
+                          setState(() {
+                            _isLiked = widget.post.isLikedByMe;
+                            _likeCount = widget.post.likeCount;
+                          });
+                        }, // Opens post detail for comments
                         borderRadius: BorderRadius.circular(20),
                         child: Padding(
                           padding: const EdgeInsets.all(4.0),
@@ -182,7 +242,7 @@ class PostCard extends StatelessWidget {
                             children: [
                               Icon(Icons.comment_outlined, size: 18, color: Colors.grey.shade600),
                               const SizedBox(width: 4),
-                              Text('${post.commentCount}', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                              Text('${widget.post.commentCount}', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
                             ],
                           ),
                         ),

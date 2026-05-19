@@ -21,12 +21,12 @@ class ForumPost {
   final String authorName;
   final String authorRole;
   final String? authorProfileImageUrl;
-  final int likeCount;
-  final int commentCount;
-  final int participantCount;
-  final bool isLikedByMe;
-  final bool isBookmarkedByMe;
-  final bool isParticipating;
+  int likeCount;
+  int commentCount;
+  int participantCount;
+  bool isLikedByMe;
+  bool isBookmarkedByMe;
+  bool isParticipating;
 
   ForumPost({
     required this.id,
