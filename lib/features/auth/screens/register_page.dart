@@ -64,13 +64,14 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _jobTitleController = TextEditingController();
   final List<String> _maxStudentsList = ['1', '2', '3', '5', '10'];
   String? _selectedMaxStudents;
-  final TextEditingController _customInterestController = TextEditingController();
+  final TextEditingController _customInterestController =
+      TextEditingController();
 
   // File picking
   String? _selectedFileName;
   String? _selectedFilePath;
-  dynamic _selectedPlatformFile; // Store PlatformFile for cross-platform support
-
+  dynamic
+  _selectedPlatformFile; // Store PlatformFile for cross-platform support
 
   @override
   void initState() {
@@ -85,7 +86,7 @@ class _RegisterPageState extends State<RegisterPage> {
           .select('name, interests(name)');
 
       final Map<String, List<String>> fetchedData = {};
-      
+
       for (var dept in response) {
         final deptName = dept['name'] as String;
         final interestsList = (dept['interests'] as List)
@@ -166,7 +167,7 @@ class _RegisterPageState extends State<RegisterPage> {
       print('File Name: $_selectedFileName');
       print('File Path: $_selectedFilePath');
       print('PlatformFile present: ${_selectedPlatformFile != null}');
-      
+
       final email = _emailController.text.trim();
       final rawPassword = _passwordController.text.trim();
       final password = sha256.convert(utf8.encode(rawPassword)).toString();
@@ -178,10 +179,11 @@ class _RegisterPageState extends State<RegisterPage> {
         }
 
         final apiService = ApiService();
-        
+
         // 1. Prepare payload (Mentors API might still expect full_name, so we merge them here temporarily)
         final Map<String, dynamic> payload = {
-          'full_name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+          'full_name':
+              '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
           'email': email,
           'password': password,
           'phone': _phoneController.text.trim(),
@@ -193,10 +195,13 @@ class _RegisterPageState extends State<RegisterPage> {
           'max_students': int.tryParse(_selectedMaxStudents ?? '1'),
           'interests': _selectedInterests,
         };
-        
+
         // 2. Call backend API with both data and file in a single multipart request
-        final result = await apiService.registerMentor(payload, _selectedPlatformFile);
-        
+        final result = await apiService.registerMentor(
+          payload,
+          _selectedPlatformFile,
+        );
+
         if (result['message'] != null && result['id'] != null) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -217,9 +222,10 @@ class _RegisterPageState extends State<RegisterPage> {
         }
 
         final apiService = ApiService();
-        
+
         final Map<String, dynamic> payload = {
-          'full_name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+          'full_name':
+              '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
           'email': email,
           'password': password, // Already hashed above!
           'phone': _phoneController.text.trim(),
@@ -229,7 +235,10 @@ class _RegisterPageState extends State<RegisterPage> {
           'interests': _selectedInterests,
         };
 
-        final result = await apiService.registerStudent(payload, _selectedPlatformFile);
+        final result = await apiService.registerStudent(
+          payload,
+          _selectedPlatformFile,
+        );
 
         if (result['message'] != null && result['id'] != null) {
           if (!mounted) return;
@@ -248,7 +257,10 @@ class _RegisterPageState extends State<RegisterPage> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('An error occurred: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() {
@@ -311,11 +323,16 @@ class _RegisterPageState extends State<RegisterPage> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
                             )
                           : Text(
                               _currentStep == 3 ? 'Submit' : 'Continue',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                     ),
                   ),
@@ -404,9 +421,21 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _buildTextField('First Name *', _firstNameController, Icons.person_outline)),
+            Expanded(
+              child: _buildTextField(
+                'First Name *',
+                _firstNameController,
+                Icons.person_outline,
+              ),
+            ),
             const SizedBox(width: 16),
-            Expanded(child: _buildTextField('Last Name *', _lastNameController, Icons.person_outline)),
+            Expanded(
+              child: _buildTextField(
+                'Last Name *',
+                _lastNameController,
+                Icons.person_outline,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -560,7 +589,9 @@ class _RegisterPageState extends State<RegisterPage> {
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             decoration: BoxDecoration(
               border: Border.all(
-                color: _selectedFileName != null ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey.shade300,
+                color: _selectedFileName != null
+                    ? const Color.fromARGB(255, 38, 55, 140)
+                    : Colors.grey.shade300,
                 style: BorderStyle.solid,
                 width: _selectedFileName != null ? 2 : 1,
               ),
@@ -570,19 +601,27 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               children: [
                 Icon(
-                  _selectedFileName != null ? Icons.check_circle : Icons.upload_file, 
-                  size: 32, 
-                  color: _selectedFileName != null ? Colors.green : Colors.grey
+                  _selectedFileName != null
+                      ? Icons.check_circle
+                      : Icons.upload_file,
+                  size: 32,
+                  color: _selectedFileName != null ? Colors.green : Colors.grey,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _selectedFileName ?? 'Upload Öğrenci Belgesi',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 TextButton(
                   onPressed: () async {
-                    if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+                    if (!kIsWeb &&
+                        (Platform.isLinux ||
+                            Platform.isWindows ||
+                            Platform.isMacOS)) {
                       // Desktop specific check if needed
                     }
 
@@ -601,7 +640,9 @@ class _RegisterPageState extends State<RegisterPage> {
                       });
                     }
                   },
-                  child: Text(_selectedFileName != null ? 'Change File' : 'Select File'),
+                  child: Text(
+                    _selectedFileName != null ? 'Change File' : 'Select File',
+                  ),
                 ),
               ],
             ),
@@ -633,7 +674,9 @@ class _RegisterPageState extends State<RegisterPage> {
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             decoration: BoxDecoration(
               border: Border.all(
-                color: _selectedFileName != null ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey.shade300,
+                color: _selectedFileName != null
+                    ? const Color.fromARGB(255, 38, 55, 140)
+                    : Colors.grey.shade300,
                 style: BorderStyle.solid,
                 width: _selectedFileName != null ? 2 : 1,
               ),
@@ -643,19 +686,27 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               children: [
                 Icon(
-                  _selectedFileName != null ? Icons.check_circle : Icons.upload_file, 
-                  size: 32, 
-                  color: _selectedFileName != null ? Colors.green : Colors.grey
+                  _selectedFileName != null
+                      ? Icons.check_circle
+                      : Icons.upload_file,
+                  size: 32,
+                  color: _selectedFileName != null ? Colors.green : Colors.grey,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _selectedFileName ?? 'Upload Graduation Document',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 TextButton(
                   onPressed: () async {
-                    if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+                    if (!kIsWeb &&
+                        (Platform.isLinux ||
+                            Platform.isWindows ||
+                            Platform.isMacOS)) {
                       // Desktop specific check if needed
                     }
 
@@ -674,7 +725,9 @@ class _RegisterPageState extends State<RegisterPage> {
                       });
                     }
                   },
-                  child: Text(_selectedFileName != null ? 'Change File' : 'Select File'),
+                  child: Text(
+                    _selectedFileName != null ? 'Change File' : 'Select File',
+                  ),
                 ),
               ],
             ),
@@ -810,9 +863,12 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     final availableInterests = _departmentInterests[_selectedDepartment] ?? [];
-    
+
     // Combine predefined interests and any custom ones the user already added
-    final Set<String> displayInterests = {...availableInterests, ..._selectedInterests};
+    final Set<String> displayInterests = {
+      ...availableInterests,
+      ..._selectedInterests,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -873,14 +929,19 @@ class _RegisterPageState extends State<RegisterPage> {
                 decoration: const InputDecoration(
                   labelText: 'Add Custom Field/Interest',
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   fillColor: Colors.white,
                   filled: true,
                 ),
                 onSubmitted: (value) {
                   final text = value.trim();
                   if (text.isNotEmpty) {
-                    final isDuplicate = _selectedInterests.any((i) => i.toLowerCase() == text.toLowerCase());
+                    final isDuplicate = _selectedInterests.any(
+                      (i) => i.toLowerCase() == text.toLowerCase(),
+                    );
                     if (!isDuplicate) {
                       setState(() {
                         _selectedInterests.add(text);
@@ -898,7 +959,9 @@ class _RegisterPageState extends State<RegisterPage> {
               onPressed: () {
                 final text = _customInterestController.text.trim();
                 if (text.isNotEmpty) {
-                  final isDuplicate = _selectedInterests.any((i) => i.toLowerCase() == text.toLowerCase());
+                  final isDuplicate = _selectedInterests.any(
+                    (i) => i.toLowerCase() == text.toLowerCase(),
+                  );
                   if (!isDuplicate) {
                     setState(() {
                       _selectedInterests.add(text);
@@ -910,7 +973,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 16,
+                ),
                 backgroundColor: const Color.fromARGB(255, 38, 55, 140),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(

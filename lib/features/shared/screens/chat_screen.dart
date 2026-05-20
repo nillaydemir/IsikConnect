@@ -54,26 +54,19 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _fetchConversations({bool showLoading = true}) async {
-    if (showLoading) setState(() => _isLoading = true);
+    if (showLoading) {
+      setState(() => _isLoading = true);
+    }
     try {
       final myId = CurrentSession().user!.id;
-      final myRole = CurrentSession().user!.role;
 
-      // 1. Fetch ALL matches (active and cancelled)
+      // 1. Fetch ALL matches (active and cancelled) to determine match-based conversations
       final matchesResponse = await _supabase
           .from('matches')
           .select()
           .or('student_id.eq.$myId,mentor_id.eq.$myId');
 
-      if (matchesResponse.isEmpty) {
-        setState(() {
-          _conversations = [];
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // 2. Extract IDs of the other users and their active status
+      // 2. Extract IDs of the other users and their active status from matches
       Map<String, bool> userActiveStatus = {};
       for (var match in matchesResponse) {
         String otherId = match['student_id'] == myId
@@ -81,11 +74,35 @@ class _ChatScreenState extends State<ChatScreen> {
             : match['student_id'];
         bool isActive = match['status'] == 'active';
 
-        // If we already saw this user as active, keep it active
         if (userActiveStatus.containsKey(otherId)) {
           userActiveStatus[otherId] = userActiveStatus[otherId]! || isActive;
         } else {
           userActiveStatus[otherId] = isActive;
+        }
+      }
+
+      // 3. Fetch all message-based conversation partners (e.g., admin DMs)
+      final sentMessages = await _supabase
+          .from('messages')
+          .select('receiver_id')
+          .eq('sender_id', myId);
+      final receivedMessages = await _supabase
+          .from('messages')
+          .select('sender_id')
+          .eq('receiver_id', myId);
+
+      final Set<String> messageUserIds = {};
+      for (var m in sentMessages as List) {
+        messageUserIds.add(m['receiver_id'].toString());
+      }
+      for (var m in receivedMessages as List) {
+        messageUserIds.add(m['sender_id'].toString());
+      }
+
+      // Merge message-only users into the map (non-match, so isActiveMatch = false)
+      for (var uid in messageUserIds) {
+        if (!userActiveStatus.containsKey(uid)) {
+          userActiveStatus[uid] = false; // DM-only conversation
         }
       }
 
@@ -97,7 +114,7 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
-      // 3. Fetch user details
+      // 4. Fetch user details for all conversation partners
       final usersResponse = await _supabase
           .from('users')
           .select()
@@ -105,7 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       final users = usersResponse.map((u) => AppUser.fromJson(u)).toList();
 
-      // 4. Fetch last message for each conversation
+      // 5. Fetch last message + unread count for each conversation
       List<ConversationItem> convos = [];
       for (var user in users) {
         try {
@@ -126,7 +143,6 @@ class _ChatScreenState extends State<ChatScreen> {
           if (msgResponse != null) {
             lastMsg = msgResponse['content'];
             lastMsgTime = DateTime.parse(msgResponse['created_at']).toLocal();
-            // Check if there are any unread messages from this user to me
             try {
               final unreadResponse = await _supabase
                   .from('messages')
@@ -136,17 +152,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   .eq('is_read', false);
               unreadCount = (unreadResponse as List).length;
             } catch (e) {
-              // Ignore if 'is_read' column doesn't exist yet
               debugPrint('is_read column may not exist: $e');
             }
           }
 
           final isActive = userActiveStatus[user.id] ?? false;
 
-          // If match is cancelled and there are no messages, do not show it
-          if (!isActive && lastMsg == null) {
-            continue;
-          }
+          // If cancelled match and no messages, skip
+          if (!isActive && lastMsg == null) continue;
 
           convos.add(
             ConversationItem(
@@ -162,10 +175,10 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
 
-      // 5. Sort by lastMessageTime descending
+      // 6. Sort by lastMessageTime descending
       convos.sort((a, b) {
         if (a.lastMessageTime == null && b.lastMessageTime == null) return 0;
-        if (a.lastMessageTime == null) return 1; // Put nulls at the bottom
+        if (a.lastMessageTime == null) return 1;
         if (b.lastMessageTime == null) return -1;
         return b.lastMessageTime!.compareTo(a.lastMessageTime!);
       });
@@ -259,6 +272,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 final convo = _conversations[index];
                 final targetUser = convo.targetUser;
 
+                final isAdminChat = targetUser.role == 'admin';
+                final displayName = isAdminChat ? 'IşıkConnect Destek' : (targetUser.name ?? 'Unknown User');
+
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -266,23 +282,27 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   leading: CircleAvatar(
                     radius: 26,
-                    backgroundColor: primaryColor.withValues(alpha: 0.1),
-                    backgroundImage: targetUser.profileImageUrl != null
+                    backgroundColor: isAdminChat
+                        ? Colors.blue.shade100
+                        : primaryColor.withValues(alpha: 0.1),
+                    backgroundImage: (!isAdminChat && targetUser.profileImageUrl != null)
                         ? NetworkImage(targetUser.profileImageUrl!)
                         : null,
-                    child: targetUser.profileImageUrl == null
-                        ? Text(
-                            (targetUser.name ?? 'U')[0].toUpperCase(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                              fontSize: 20,
-                            ),
-                          )
-                        : null,
+                    child: isAdminChat
+                        ? Icon(Icons.support_agent, color: Colors.blue.shade700, size: 26)
+                        : (targetUser.profileImageUrl == null
+                            ? Text(
+                                (targetUser.name ?? 'U')[0].toUpperCase(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
+                                  fontSize: 20,
+                                ),
+                              )
+                            : null),
                   ),
                   title: Text(
-                    targetUser.name ?? 'Unknown User',
+                    displayName,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -337,7 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         )
                       else
-                        const SizedBox(height: 20), // Placeholder for alignment
+                        const SizedBox(height: 20),
                     ],
                   ),
                   onTap: () {
@@ -350,7 +370,6 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ),
                     ).then((_) {
-                      // Refresh the list when coming back from chat detail
                       _fetchConversations();
                     });
                   },
@@ -429,14 +448,60 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     super.dispose();
   }
 
-  void _showEndMentorshipDialog() {
+  Future<void> _showEndMentorshipDialog() async {
+    final myRole = CurrentSession().user!.role;
+    String warningMessage = '${widget.targetUser.name} ile olan eşleşmenizi bitirmek istediğinize emin misiniz? Bu işlem geri alınamaz.';
+    
+    if (myRole == 'student') {
+      try {
+        final cancelledCount = await MatchingService().getCancelledMatchCount(_myId);
+        final remainingRights = 2 - cancelledCount;
+        
+        if (remainingRights > 1) {
+          warningMessage += '\n\nEğer iptal ederseniz, bu eğitim dönemi (Eylül itibarıyla) için $remainingRights yeni eşleşme hakkınız kalacak.';
+        } else if (remainingRights == 1) {
+          warningMessage += '\n\nDİKKAT: Bu son iptal hakkınız! Eğer iptal ederseniz, bir sonraki Eylül ayına kadar yeni bir mentorle eşleşemeyeceksiniz.';
+        } else {
+          warningMessage += '\n\nDİKKAT: Yeni eşleşme hakkınız kalmadı! Eğer iptal ederseniz, bir sonraki Eylül ayına kadar yeni bir mentorle eşleşemeyeceksiniz.';
+        }
+      } catch (e) {
+        debugPrint('Kalan haklar alınırken hata oluştu: $e');
+      }
+    } else if (myRole == 'mentor') {
+      try {
+        final cancelledCount = await MatchingService().getMentorCancelledMatchCount(_myId);
+        
+        // Fetch mentor's max_students to calculate their limit
+        final mentorRes = await _supabase
+            .from('mentors')
+            .select('max_students')
+            .eq('id', _myId)
+            .maybeSingle();
+            
+        final maxStudents = mentorRes?['max_students'] as int? ?? 1;
+        final limit = maxStudents * 2;
+        final remainingRights = limit - cancelledCount;
+
+        if (remainingRights > 1) {
+          warningMessage += '\n\nEğer iptal ederseniz, bu eğitim dönemi (Eylül itibarıyla) için $remainingRights yeni eşleşme iptal hakkınız kalacak.';
+        } else if (remainingRights == 1) {
+          warningMessage += '\n\nDİKKAT: Bu son iptal hakkınız! Eğer iptal ederseniz, bir sonraki Eylül ayına kadar yeni öğrenci ataması alamayacaksınız.';
+        } else {
+          warningMessage += '\n\nDİKKAT: İptal limitinizi doldurdunuz! Eğer iptal ederseniz, bir sonraki Eylül ayına kadar sistem size yeni öğrenci eşleştirmeyecektir.';
+        }
+      } catch (e) {
+        debugPrint('Mentor limit hesaplanırken hata oluştu: $e');
+        warningMessage += '\n\nNot: Bu eğitim dönemi için iptal limitiniz kapasitenizin 2 katıdır.';
+      }
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Eşleşmeyi Bitir'),
-        content: Text(
-          '${widget.targetUser.name} ile olan eşleşmenizi bitirmek istediğinize emin misiniz? Bu işlem geri alınamaz.\n\nNot: 1 yıl içerisinde en fazla 2 kez eşleşme değiştirme hakkınız bulunmaktadır.',
-        ),
+        content: Text(warningMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -519,30 +584,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final studentId = myRole == 'mentor' ? widget.targetUser.id : _myId;
       final mentorId = myRole == 'mentor' ? _myId : widget.targetUser.id;
 
-      // Check limit: 2 changes per year
-      final oneYearAgo = DateTime.now()
-          .subtract(const Duration(days: 365))
-          .toIso8601String();
-      final cancelledMatches = await _supabase
-          .from('matches')
-          .select('id')
-          .eq(myRole == 'mentor' ? 'mentor_id' : 'student_id', _myId)
-          .eq('status', 'cancelled')
-          .gte('created_at', oneYearAgo);
-
-      if ((cancelledMatches as List).length >= 2) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Limit aşıldı: 1 yıl içerisinde en fazla 2 kez eşleşme değiştirebilirsiniz.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
+      // Note: We no longer block termination if they exceeded limits.
+      // We allow them to terminate, but they won't be able to match again (handled in HomePageStudent).
+      // If we wanted to block termination, we would check getCancelledMatchCount here.
+      // But logically, a user should always be able to leave a mentor they don't want, they just can't get a new one.
 
       await MatchingService().cancelMatch(studentId, mentorId);
 
@@ -621,6 +666,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
+    final isAdminChat = widget.targetUser.role == 'admin';
+    final displayName = isAdminChat ? 'IşıkConnect Destek' : (widget.targetUser.name ?? 'Unknown User');
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -629,25 +676,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           children: [
             CircleAvatar(
               radius: 16,
-              backgroundColor: primaryColor.withValues(alpha: 0.1),
-              backgroundImage: widget.targetUser.profileImageUrl != null
+              backgroundColor: isAdminChat
+                  ? Colors.blue.shade100
+                  : primaryColor.withValues(alpha: 0.1),
+              backgroundImage: (!isAdminChat && widget.targetUser.profileImageUrl != null)
                   ? NetworkImage(widget.targetUser.profileImageUrl!)
                   : null,
-              child: widget.targetUser.profileImageUrl == null
-                  ? Text(
-                      (widget.targetUser.name ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
-                        fontSize: 14,
-                      ),
-                    )
-                  : null,
+              child: isAdminChat
+                  ? Icon(Icons.support_agent, color: Colors.blue.shade700, size: 16)
+                  : (widget.targetUser.profileImageUrl == null
+                      ? Text(
+                          (widget.targetUser.name ?? 'U')[0].toUpperCase(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                            fontSize: 14,
+                          ),
+                        )
+                      : null),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                widget.targetUser.name ?? 'Unknown User',
+                displayName,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
@@ -797,12 +848,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               color: Colors.grey[200],
-              child: const SafeArea(
+              child: SafeArea(
                 top: false,
                 child: Text(
-                  'Bu eşleşme sonlandırıldı. Artık mesaj gönderemezsiniz.',
+                  isAdminChat
+                      ? 'Bu destek mesajıdır. Yanıt veremezsiniz.'
+                      : 'Bu eşleşme sonlandırıldı. Artık mesaj gönderemezsiniz.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.black54,
                     fontWeight: FontWeight.bold,
                   ),

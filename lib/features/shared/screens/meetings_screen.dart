@@ -46,7 +46,13 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
       child: Scaffold(
         backgroundColor: Colors.grey[50],
         appBar: AppBar(
-          title: const Text('Meetings', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+          title: const Text(
+            'Meetings',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: false,
@@ -69,7 +75,9 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                 onPressed: () async {
                   final result = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const CreateMeetingScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const CreateMeetingScreen(),
+                    ),
                   );
                   if (result == true) {
                     setState(() {}); // Refresh future builder
@@ -84,14 +92,16 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
-              return Center(child: Text('Error loading meetings: ${snapshot.error}'));
+              return Center(
+                child: Text('Error loading meetings: ${snapshot.error}'),
+              );
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const Center(child: Text('No meetings found.'));
             }
 
             final allMeetings = snapshot.data!;
             final now = DateTime.now();
-            
+
             final upcomingMeetings = allMeetings.where((m) {
               if (m['meeting_date'] == null) return false;
               return DateTime.parse(m['meeting_date']).isAfter(now);
@@ -104,24 +114,38 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
 
             return TabBarView(
               children: [
-                _MeetingList(type: 'All', meetings: upcomingMeetings, currentUserId: currentUserId, onRefresh: () => setState((){})),
+                _MeetingList(
+                  type: 'All',
+                  meetings: upcomingMeetings,
+                  currentUserId: currentUserId,
+                  onRefresh: () => setState(() {}),
+                ),
                 _MeetingList(
                   type: 'Workshops',
-                  meetings: upcomingMeetings.where((m) => m['meeting_type'] == 'Workshop').toList(),
+                  meetings: upcomingMeetings
+                      .where((m) => m['meeting_type'] == 'Workshop')
+                      .toList(),
                   currentUserId: currentUserId,
-                  onRefresh: () => setState((){}),
+                  onRefresh: () => setState(() {}),
                 ),
                 _MeetingList(
                   type: 'My Meetings',
-                  meetings: upcomingMeetings.where((m) => m['mentor_id'] == currentUserId || m['student_id'] == currentUserId || (m['is_registered'] == true)).toList(),
+                  meetings: upcomingMeetings
+                      .where(
+                        (m) =>
+                            m['mentor_id'] == currentUserId ||
+                            m['student_id'] == currentUserId ||
+                            (m['is_registered'] == true),
+                      )
+                      .toList(),
                   currentUserId: currentUserId,
-                  onRefresh: () => setState((){}),
+                  onRefresh: () => setState(() {}),
                 ),
                 _MeetingList(
                   type: 'Past',
                   meetings: pastMeetings,
                   currentUserId: currentUserId,
-                  onRefresh: () => setState((){}),
+                  onRefresh: () => setState(() {}),
                 ),
               ],
             );
@@ -164,9 +188,9 @@ class _MeetingListState extends State<_MeetingList> {
       );
       widget.onRefresh();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to register: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to register: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -192,42 +216,50 @@ class _MeetingListState extends State<_MeetingList> {
         final meetingIdStr = meeting['id'].toString();
         final isWorkshop = meeting['meeting_type'] == 'Workshop';
         final is1on1 = meeting['meeting_type'] == '1-on-1';
-        
+
         // For 1-on-1s, only host and specific mentee can join.
         // For Workshops, host can join, students must be registered.
         bool isHost = meeting['mentor_id'] == widget.currentUserId;
         bool isJoined = false;
         bool isRegistered = meeting['is_registered'] == true;
-        
+
         if (isWorkshop) {
           isJoined = isHost || isRegistered;
         } else {
           isJoined = isHost || meeting['student_id'] == widget.currentUserId;
         }
 
-        final meetingDate = meeting['meeting_date'] != null ? DateTime.parse(meeting['meeting_date']).toLocal() : null;
+        final meetingDate = meeting['meeting_date'] != null
+            ? DateTime.parse(meeting['meeting_date']).toLocal()
+            : null;
         final now = DateTime.now();
-        
-        final isPast = meetingDate != null && now.isAfter(meetingDate.add(const Duration(minutes: 10)));
-        final isTooEarly = meetingDate != null && now.isBefore(meetingDate.subtract(const Duration(minutes: 10)));
 
-        final dateStr = meetingDate != null 
-          ? '${meetingDate.day.toString().padLeft(2, '0')}/${meetingDate.month.toString().padLeft(2, '0')}/${meetingDate.year} ${meetingDate.hour.toString().padLeft(2, '0')}:${meetingDate.minute.toString().padLeft(2, '0')}'
-          : 'Unknown Date';
+        final isPast =
+            meetingDate != null &&
+            now.isAfter(meetingDate.add(const Duration(minutes: 10)));
+        final isTooEarly =
+            meetingDate != null &&
+            now.isBefore(meetingDate.subtract(const Duration(minutes: 10)));
 
-        final mentorName = meeting['mentor'] != null 
-          ? '${meeting['mentor']['first_name']} ${meeting['mentor']['last_name']}'
-          : 'Mentor';
-          
+        final dateStr = meetingDate != null
+            ? '${meetingDate.day.toString().padLeft(2, '0')}/${meetingDate.month.toString().padLeft(2, '0')}/${meetingDate.year} ${meetingDate.hour.toString().padLeft(2, '0')}:${meetingDate.minute.toString().padLeft(2, '0')}'
+            : 'Unknown Date';
+
+        final mentorName = meeting['mentor'] != null
+            ? '${meeting['mentor']['first_name']} ${meeting['mentor']['last_name']}'
+            : 'Mentor';
+
         final studentName = meeting['student'] != null
-          ? '${meeting['student']['first_name']} ${meeting['student']['last_name']}'
-          : 'Unknown Mentee';
+            ? '${meeting['student']['first_name']} ${meeting['student']['last_name']}'
+            : 'Unknown Mentee';
 
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
           elevation: 2,
           shadowColor: Colors.black.withValues(alpha: 0.05),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -237,15 +269,22 @@ class _MeetingListState extends State<_MeetingList> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: isWorkshop ? Colors.orange.shade50 : Colors.blue.shade50,
+                        color: isWorkshop
+                            ? Colors.orange.shade50
+                            : Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         meeting['meeting_type'] ?? 'Meeting',
                         style: TextStyle(
-                          color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
+                          color: isWorkshop
+                              ? Colors.orange.shade700
+                              : Colors.blue.shade700,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -256,12 +295,20 @@ class _MeetingListState extends State<_MeetingList> {
                       children: [
                         Text(
                           dateStr,
-                          style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13),
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                         if (isHost) ...[
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.redAccent,
+                              size: 20,
+                            ),
                             constraints: const BoxConstraints(),
                             padding: EdgeInsets.zero,
                             onPressed: () async {
@@ -269,12 +316,21 @@ class _MeetingListState extends State<_MeetingList> {
                                 context: context,
                                 builder: (context) => AlertDialog(
                                   title: const Text('Delete Meeting'),
-                                  content: const Text('Are you sure you want to delete this meeting?'),
+                                  content: const Text(
+                                    'Are you sure you want to delete this meeting?',
+                                  ),
                                   actions: [
-                                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
                                     TextButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                      ),
                                       child: const Text('Delete'),
                                     ),
                                   ],
@@ -283,11 +339,17 @@ class _MeetingListState extends State<_MeetingList> {
 
                               if (confirm == true) {
                                 try {
-                                  await _meetingService.deleteMeeting(meetingIdStr);
+                                  await _meetingService.deleteMeeting(
+                                    meetingIdStr,
+                                  );
                                   widget.onRefresh();
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Meeting deleted successfully.')),
+                                      const SnackBar(
+                                        content: Text(
+                                          'Meeting deleted successfully.',
+                                        ),
+                                      ),
                                     );
                                   }
                                 } catch (e) {
@@ -308,23 +370,48 @@ class _MeetingListState extends State<_MeetingList> {
                 const SizedBox(height: 12),
                 Text(
                   meeting['title'] ?? 'No Title',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.person_outline, size: 16, color: Colors.grey.shade600),
+                    Icon(
+                      Icons.person_outline,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
                     const SizedBox(width: 4),
-                    Text('Host: $mentorName', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                    Text(
+                      'Host: $mentorName',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
-                if (is1on1 && (meeting['mentor_id'] == widget.currentUserId || meeting['student_id'] == widget.currentUserId)) ...[
+                if (is1on1 &&
+                    (meeting['mentor_id'] == widget.currentUserId ||
+                        meeting['student_id'] == widget.currentUserId)) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.people_outline, size: 16, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.people_outline,
+                        size: 16,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(width: 4),
-                      Text('Mentee: $studentName', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                      Text(
+                        'Mentee: $studentName',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -335,17 +422,28 @@ class _MeetingListState extends State<_MeetingList> {
                     child: ElevatedButton(
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Etkinlik geçmiştir.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+                          const SnackBar(
+                            content: Text(
+                              'Etkinlik geçmiştir.',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey.shade200,
                         foregroundColor: Colors.grey.shade500,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('Süresi Doldu', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'Süresi Doldu',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   )
                 else if (isWorkshop && !isHost && !isRegistered)
@@ -359,12 +457,24 @@ class _MeetingListState extends State<_MeetingList> {
                         backgroundColor: Colors.orange.shade600,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       child: _processingMeetings.contains(meetingIdStr)
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Register for Workshop', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Register for Workshop',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                     ),
                   )
                 else
@@ -374,34 +484,49 @@ class _MeetingListState extends State<_MeetingList> {
                       onPressed: () {
                         if (!isJoined) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('You are not a participant in this meeting.')),
+                            const SnackBar(
+                              content: Text(
+                                'You are not a participant in this meeting.',
+                              ),
+                            ),
                           );
                           return;
                         }
 
                         if (isTooEarly && meetingDate != null) {
-                          final validTime = meetingDate.subtract(const Duration(minutes: 10));
-                          final timeStr = '${validTime.hour.toString().padLeft(2, '0')}:${validTime.minute.toString().padLeft(2, '0')}';
+                          final validTime = meetingDate.subtract(
+                            const Duration(minutes: 10),
+                          );
+                          final timeStr =
+                              '${validTime.hour.toString().padLeft(2, '0')}:${validTime.minute.toString().padLeft(2, '0')}';
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Etkinliğe saat $timeStr itibariyle giriş yapabilirsiniz.'), backgroundColor: Colors.orange),
+                            SnackBar(
+                              content: Text(
+                                'Etkinliğe saat $timeStr itibariyle giriş yapabilirsiniz.',
+                              ),
+                              backgroundColor: Colors.orange,
+                            ),
                           );
                           return;
                         }
-                        
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => VideoCallScreen(
-                              channelName: meetingIdStr,
-                            ),
+                            builder: (context) =>
+                                VideoCallScreen(channelName: meetingIdStr),
                           ),
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: isTooEarly ? Colors.grey.shade400 : primaryColor,
+                        backgroundColor: isTooEarly
+                            ? Colors.grey.shade400
+                            : primaryColor,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       child: const Text(

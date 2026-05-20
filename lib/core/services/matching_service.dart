@@ -50,12 +50,29 @@ class MatchingService {
         .map((m) => m['mentor_id'].toString())
         .toSet();
 
+    // 5. Fetch ALL cancelled matches for all mentors in the current period to check limits
+    final periodStart = _getCurrentPeriodStart();
+    final allCancelledMatches = await _supabase
+        .from('matches')
+        .select('mentor_id')
+        .eq('status', 'cancelled')
+        .gte('created_at', periodStart.toIso8601String());
+
+    final Map<String, int> mentorCancellationCounts = {};
+    for (var match in allCancelledMatches as List) {
+      final mId = match['mentor_id'].toString();
+      mentorCancellationCounts[mId] = (mentorCancellationCounts[mId] ?? 0) + 1;
+    }
+
     List<Mentor> mentors = [];
     for (var row in response) {
-      if (cancelledMentorIds.contains(row['id'].toString())) {
-        print('Skipping mentor ${row['id']} because they were previously cancelled.');
+      final mentorIdStr = row['id'].toString();
+      
+      if (cancelledMentorIds.contains(mentorIdStr)) {
+        print('Skipping mentor $mentorIdStr because they were previously cancelled by this student.');
         continue;
       }
+      
       final mentorDataRaw = row['mentors'];
       if (mentorDataRaw == null) continue;
       
@@ -65,6 +82,15 @@ class MatchingService {
         mentorData = mentorDataRaw.first;
       } else {
         mentorData = mentorDataRaw as Map<String, dynamic>;
+      }
+
+      int maxCapacity = mentorData['max_students'] ?? 1;
+      
+      // Check mentor cancellation limit (max_students * 2)
+      final mentorCancelCount = mentorCancellationCounts[mentorIdStr] ?? 0;
+      if (mentorCancelCount >= (maxCapacity * 2)) {
+        print('Skipping mentor $mentorIdStr because they exceeded their cancellation limit ($mentorCancelCount / ${maxCapacity * 2}).');
+        continue;
       }
 
       // Get ratings from our separate fetch
@@ -77,7 +103,6 @@ class MatchingService {
 
       // Skip if already full
       int currentCount = mentorData['current_student_count'] ?? 0;
-      int maxCapacity = mentorData['max_students'] ?? 1;
       if (currentCount >= maxCapacity) continue;
 
       mentors.add(Mentor(
@@ -167,6 +192,40 @@ class MatchingService {
     await _supabase.from('students').update({
       'matched_mentor_id': null,
     }).eq('id', studentId);
+  }
+
+  /// Returns the start date of the current academic year (September 1st)
+  DateTime _getCurrentPeriodStart() {
+    final now = DateTime.now();
+    if (now.month >= DateTime.september) {
+      return DateTime(now.year, DateTime.september, 1);
+    } else {
+      return DateTime(now.year - 1, DateTime.september, 1);
+    }
+  }
+
+  /// Returns the number of cancelled matches for a student in the current academic year
+  Future<int> getCancelledMatchCount(String studentId) async {
+    final periodStart = _getCurrentPeriodStart();
+    final response = await _supabase
+        .from('matches')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('status', 'cancelled')
+        .gte('created_at', periodStart.toIso8601String());
+    return (response as List).length;
+  }
+
+  /// Returns the number of cancelled matches for a mentor in the current academic year
+  Future<int> getMentorCancelledMatchCount(String mentorId) async {
+    final periodStart = _getCurrentPeriodStart();
+    final response = await _supabase
+        .from('matches')
+        .select('id')
+        .eq('mentor_id', mentorId)
+        .eq('status', 'cancelled')
+        .gte('created_at', periodStart.toIso8601String());
+    return (response as List).length;
   }
 
   /// THE BLACK BOX ALGORITHM (DO NOT MODIFY LOGIC)

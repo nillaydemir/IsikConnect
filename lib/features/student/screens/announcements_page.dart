@@ -18,21 +18,6 @@ class AnnouncementsPage extends StatelessWidget {
         backgroundColor: Colors.white,
         iconTheme: const IconThemeData(color: primaryColor),
         elevation: 0.5,
-        actions: [
-          StreamBuilder<List<ForumPost>>(
-            stream: ForumService().getUnreadPostsStream(),
-            builder: (context, snapshot) {
-              final count = snapshot.data?.length ?? 0;
-              return Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Badge(
-                  label: Text('$count'),
-                  child: const Icon(Icons.notifications),
-                ),
-              );
-            },
-          )
-        ],
       ),
       body: StreamBuilder<List<ForumPost>>(
         stream: ForumService().getUnreadPostsStream(),
