@@ -90,4 +90,14 @@ class MeetingService {
       'student_id': user.id,
     });
   }
+
+  Future<void> deleteMeeting(String meetingId) async {
+    final user = CurrentSession().user;
+    if (user == null) throw Exception('User not logged in');
+
+    await _supabase
+        .from('meetings')
+        .delete()
+        .match({'id': meetingId, 'mentor_id': user.id});
+  }
 }

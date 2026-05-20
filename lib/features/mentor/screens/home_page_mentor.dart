@@ -10,6 +10,7 @@ import '../../shared/screens/forum_screen.dart';
 import '../../forum/services/forum_service.dart';
 import '../../forum/models/forum_post_model.dart';
 import '../../../core/services/meeting_service.dart';
+import '../../../core/services/message_service.dart';
 
 class HomePageMentor extends StatefulWidget {
   const HomePageMentor({super.key});
@@ -111,9 +112,37 @@ class _HomePageMentorState extends State<HomePageMentor> {
           elevation: 0,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
-          items: const [
+          items: [
             BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_rounded), label: 'Chat'),
+            BottomNavigationBarItem(
+              icon: StreamBuilder<int>(
+                stream: MessageService().getUnreadCountStream(),
+                builder: (context, snapshot) {
+                  final count = snapshot.data ?? 0;
+                  return Stack(
+                    children: [
+                      const Icon(Icons.chat_bubble_rounded),
+                      if (count > 0)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                            constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                            child: Text(
+                              '$count',
+                              style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              label: 'Chat',
+            ),
             BottomNavigationBarItem(icon: Icon(Icons.forum_rounded), label: 'Forum'),
             BottomNavigationBarItem(icon: Icon(Icons.videocam_rounded), label: 'Meetings'),
             BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
@@ -420,20 +449,66 @@ class _HomeTabState extends State<_HomeTab> {
               dateStr,
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: isWorkshop ? Colors.orange.shade50 : Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                meeting['meeting_type'] ?? '',
-                style: TextStyle(
-                  color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isWorkshop ? Colors.orange.shade50 : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    meeting['meeting_type'] ?? '',
+                    style: TextStyle(
+                      color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Meeting'),
+                        content: const Text('Are you sure you want to delete this meeting?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      try {
+                        await MeetingService().deleteMeeting(meeting['id'].toString());
+                        _fetchUpcomingMeetings();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Meeting deleted successfully.')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                ),
+              ],
             ),
           ),
         );

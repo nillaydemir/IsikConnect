@@ -64,8 +64,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _submit() async {
-    if (_titleController.text.trim().isEmpty || _contentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in title and content')));
+    if (_contentController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in the content')));
       return;
     }
 

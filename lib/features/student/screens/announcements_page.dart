@@ -20,7 +20,7 @@ class AnnouncementsPage extends StatelessWidget {
         elevation: 0.5,
         actions: [
           StreamBuilder<List<ForumPost>>(
-            stream: ForumService().getAllPostsStream(),
+            stream: ForumService().getUnreadPostsStream(),
             builder: (context, snapshot) {
               final count = snapshot.data?.length ?? 0;
               return Padding(
@@ -35,7 +35,7 @@ class AnnouncementsPage extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<List<ForumPost>>(
-        stream: ForumService().getAllPostsStream(),
+        stream: ForumService().getUnreadPostsStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -55,7 +55,7 @@ class AnnouncementsPage extends StatelessWidget {
                   Icon(Icons.notifications_none_rounded, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
                   Text(
-                    'No announcements yet.',
+                    'No new announcements.',
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                 ],

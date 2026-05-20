@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'pending_mentors_screen.dart';
+import 'admin_users_screen.dart';
+import 'admin_reports_screen.dart';
 
 class AdminMainScreen extends StatefulWidget {
   const AdminMainScreen({Key? key}) : super(key: key);
@@ -13,9 +15,8 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 
   final List<Widget> _screens = [
     const PendingMentorsScreen(),
-    const Center(child: Text('Manage Users Screen (Coming Soon)', style: TextStyle(color: Colors.grey))),
-    const Center(child: Text('Forum Moderation Screen (Coming Soon)', style: TextStyle(color: Colors.grey))),
-    const Center(child: Text('Reports Screen (Coming Soon)', style: TextStyle(color: Colors.grey))),
+    const AdminUsersScreen(),
+    const AdminReportsScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -74,10 +75,6 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.people),
               label: 'Users',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.forum),
-              label: 'Forum',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart),

@@ -56,6 +56,53 @@ class ForumService {
     });
   }
 
+  // --- Get Unread Posts Stream ---
+  Stream<List<ForumPost>> getUnreadPostsStream() {
+    final StreamController<List<ForumPost>> controller = StreamController<List<ForumPost>>.broadcast();
+
+    Future<void> updatePosts() async {
+      try {
+        final allPosts = await fetchPosts(null);
+        final readResponse = await _supabase
+            .from('forum_read_posts')
+            .select('post_id')
+            .eq('user_id', _currentUserId);
+        
+        final readPostIds = (readResponse as List).map((e) => e['post_id'] as String).toSet();
+        final unreadPosts = allPosts.where((post) => !readPostIds.contains(post.id)).toList();
+        if (!controller.isClosed) {
+          controller.add(unreadPosts);
+        }
+      } catch (e) {
+        print('Error updating unread posts: $e');
+      }
+    }
+
+    // Initial update
+    updatePosts();
+
+    // Listen for new posts
+    final postsSubscription = _supabase
+        .from('forum_posts')
+        .stream(primaryKey: ['id'])
+        .listen((_) => updatePosts());
+
+    // Listen for read status changes
+    final readSubscription = _supabase
+        .from('forum_read_posts')
+        .stream(primaryKey: ['user_id', 'post_id'])
+        .eq('user_id', _currentUserId)
+        .listen((_) => updatePosts());
+
+    controller.onCancel = () {
+      postsSubscription.cancel();
+      readSubscription.cancel();
+      controller.close();
+    };
+
+    return controller.stream;
+  }
+
   // --- Get Unread Count Stream ---
   Stream<int> getUnreadCountStream() {
     final StreamController<int> controller = StreamController<int>.broadcast();
