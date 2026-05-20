@@ -39,8 +39,23 @@ class MatchingService {
 
     print('Matching Debug: Found ${response.length} approved mentors in database.');
 
+    // 4. Fetch cancelled mentors for this student to exclude them
+    final cancelledMatches = await _supabase
+        .from('matches')
+        .select('mentor_id')
+        .eq('student_id', student.id)
+        .eq('status', 'cancelled');
+        
+    final cancelledMentorIds = (cancelledMatches as List)
+        .map((m) => m['mentor_id'].toString())
+        .toSet();
+
     List<Mentor> mentors = [];
     for (var row in response) {
+      if (cancelledMentorIds.contains(row['id'].toString())) {
+        print('Skipping mentor ${row['id']} because they were previously cancelled.');
+        continue;
+      }
       final mentorDataRaw = row['mentors'];
       if (mentorDataRaw == null) continue;
       

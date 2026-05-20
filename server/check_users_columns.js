@@ -1,20 +1,10 @@
 const supabase = require('./src/config/supabase');
 
-async function checkUsersTable() {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .limit(1);
-
-  if (error) {
-    console.error('Error fetching users:', error);
-  } else {
-    if (data.length > 0) {
-      console.log('Columns in users table:', Object.keys(data[0]));
-    } else {
-      console.log('No users found to check columns.');
-    }
-  }
+async function checkTables() {
+  const { data: students, error: e1 } = await supabase.from('students').select('*').limit(1);
+  const { data: mentors, error: e2 } = await supabase.from('mentors').select('*').limit(1);
+  
+  if (students && students.length > 0) console.log('Students:', Object.keys(students[0]));
+  if (mentors && mentors.length > 0) console.log('Mentors:', Object.keys(mentors[0]));
 }
-
-checkUsersTable();
+checkTables();

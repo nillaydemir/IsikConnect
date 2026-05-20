@@ -95,12 +95,29 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final response = await Supabase.instance.client
           .from('users')
-          .select()
+          .select('*, mentors(*), students(*)')
           .eq('id', widget.targetUserId!)
           .single();
       
+      final Map<String, dynamic> mergedData = Map<String, dynamic>.from(response);
+      if (mergedData['role'] == 'student' && mergedData['students'] != null) {
+        final s = mergedData['students'];
+        if (s is List && s.isNotEmpty) {
+          mergedData.addAll(Map<String, dynamic>.from(s.first));
+        } else if (s is Map) {
+          mergedData.addAll(Map<String, dynamic>.from(s));
+        }
+      } else if (mergedData['role'] == 'mentor' && mergedData['mentors'] != null) {
+        final m = mergedData['mentors'];
+        if (m is List && m.isNotEmpty) {
+          mergedData.addAll(Map<String, dynamic>.from(m.first));
+        } else if (m is Map) {
+          mergedData.addAll(Map<String, dynamic>.from(m));
+        }
+      }
+
       setState(() {
-        _user = AppUser.fromJson(response);
+        _user = AppUser.fromJson(mergedData);
         _resetControllers();
         _fetchReviews();
       });
@@ -257,10 +274,18 @@ class _ProfilePageState extends State<ProfilePage> {
       final Map<String, dynamic> mergedData = Map<String, dynamic>.from(freshResponse);
       if (mergedData['role'] == 'student' && mergedData['students'] != null) {
         final s = mergedData['students'];
-        mergedData.addAll(s is List ? s.first : s);
+        if (s is List && s.isNotEmpty) {
+          mergedData.addAll(Map<String, dynamic>.from(s.first));
+        } else if (s is Map) {
+          mergedData.addAll(Map<String, dynamic>.from(s));
+        }
       } else if (mergedData['role'] == 'mentor' && mergedData['mentors'] != null) {
         final m = mergedData['mentors'];
-        mergedData.addAll(m is List ? m.first : m);
+        if (m is List && m.isNotEmpty) {
+          mergedData.addAll(Map<String, dynamic>.from(m.first));
+        } else if (m is Map) {
+          mergedData.addAll(Map<String, dynamic>.from(m));
+        }
       }
 
       setState(() {

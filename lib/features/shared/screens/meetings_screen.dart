@@ -205,10 +205,14 @@ class _MeetingListState extends State<_MeetingList> {
           isJoined = isHost || meeting['student_id'] == widget.currentUserId;
         }
 
-        final isPast = meeting['meeting_date'] != null && DateTime.parse(meeting['meeting_date']).isBefore(DateTime.now());
+        final meetingDate = meeting['meeting_date'] != null ? DateTime.parse(meeting['meeting_date']).toLocal() : null;
+        final now = DateTime.now();
+        
+        final isPast = meetingDate != null && now.isAfter(meetingDate.add(const Duration(minutes: 10)));
+        final isTooEarly = meetingDate != null && now.isBefore(meetingDate.subtract(const Duration(minutes: 10)));
 
-        final dateStr = meeting['meeting_date'] != null 
-          ? DateTime.parse(meeting['meeting_date']).toLocal().toString().substring(0, 16) 
+        final dateStr = meetingDate != null 
+          ? '${meetingDate.day.toString().padLeft(2, '0')}/${meetingDate.month.toString().padLeft(2, '0')}/${meetingDate.year} ${meetingDate.hour.toString().padLeft(2, '0')}:${meetingDate.minute.toString().padLeft(2, '0')}'
           : 'Unknown Date';
 
         final mentorName = meeting['mentor'] != null 
@@ -329,7 +333,11 @@ class _MeetingListState extends State<_MeetingList> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: null,
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Etkinlik geçmiştir.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+                        );
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey.shade200,
                         foregroundColor: Colors.grey.shade500,
@@ -337,7 +345,7 @@ class _MeetingListState extends State<_MeetingList> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text('Ended', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text('Süresi Doldu', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   )
                 else if (isWorkshop && !isHost && !isRegistered)
@@ -370,6 +378,15 @@ class _MeetingListState extends State<_MeetingList> {
                           );
                           return;
                         }
+
+                        if (isTooEarly && meetingDate != null) {
+                          final validTime = meetingDate.subtract(const Duration(minutes: 10));
+                          final timeStr = '${validTime.hour.toString().padLeft(2, '0')}:${validTime.minute.toString().padLeft(2, '0')}';
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Etkinliğe saat $timeStr itibariyle giriş yapabilirsiniz.'), backgroundColor: Colors.orange),
+                          );
+                          return;
+                        }
                         
                         Navigator.push(
                           context,
@@ -381,7 +398,7 @@ class _MeetingListState extends State<_MeetingList> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
+                        backgroundColor: isTooEarly ? Colors.grey.shade400 : primaryColor,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
