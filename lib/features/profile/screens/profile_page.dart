@@ -35,8 +35,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _companyController = TextEditingController();
   final TextEditingController _jobTitleController = TextEditingController();
   List<String> _selectedDays = [];
-  List<String> _editableInterests = [];
-  final TextEditingController _interestController = TextEditingController();
+  List<String> _selectedInterests = [];
+  final TextEditingController _customInterestController = TextEditingController();
+  Map<String, List<String>> _departmentInterests = {};
 
   final List<String> _allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -61,6 +62,31 @@ class _ProfilePageState extends State<ProfilePage> {
       _user = CurrentSession().user!;
       _resetControllers();
       _fetchReviews();
+    }
+    _fetchDepartmentsAndInterests();
+  }
+
+  Future<void> _fetchDepartmentsAndInterests() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('departments')
+          .select('name, interests(name)');
+      
+      final Map<String, List<String>> fetchedData = {};
+      for (var dept in response) {
+        final deptName = dept['name'] as String;
+        final interestsList = (dept['interests'] as List)
+            .map((i) => i['name'] as String)
+            .toList();
+        fetchedData[deptName] = interestsList;
+      }
+      if (mounted) {
+        setState(() {
+          _departmentInterests = fetchedData;
+        });
+      }
+    } catch (e) {
+      print('Error fetching departments: $e');
     }
   }
 
@@ -134,7 +160,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _companyController.text = _user.company ?? '';
     _jobTitleController.text = _user.jobTitle ?? '';
     _selectedDays = List<String>.from(_user.availableDays ?? []);
-    _editableInterests = List<String>.from(_user.interests ?? []);
+    _selectedInterests = List<String>.from(_user.interests ?? []);
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -212,11 +238,11 @@ class _ProfilePageState extends State<ProfilePage> {
           'company': _companyController.text.trim(),
           'job_title': _jobTitleController.text.trim(),
           'available_days': _selectedDays,
-          'interests': _editableInterests,
+          'interests': _selectedInterests,
         }).eq('id', _user.id);
       } else if (_user.role == 'student') {
         await Supabase.instance.client.from('students').update({
-          'interests': _editableInterests,
+          'interests': _selectedInterests,
           'available_days': _selectedDays,
         }).eq('id', _user.id);
       }
@@ -590,78 +616,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildInterestsSection(Color primaryColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.label_outline, size: 20, color: primaryColor),
-            const SizedBox(width: 8),
-            Text(
-              'Interests & Skills',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (_isEditing) ...[
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _interestController,
-                  decoration: InputDecoration(
-                    hintText: 'Add interest (e.g. Flutter)',
-                    hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
-                  onSubmitted: (value) => _addInterest(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: _addInterest,
-                icon: Icon(Icons.add_circle, color: primaryColor, size: 32),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _editableInterests.map((interest) {
-            return Chip(
-              label: Text(interest, style: const TextStyle(fontSize: 12)),
-              backgroundColor: primaryColor.withValues(alpha: 0.05),
-              side: BorderSide(color: primaryColor.withValues(alpha: 0.2)),
-              onDeleted: _isEditing ? () {
-                setState(() {
-                  _editableInterests.remove(interest);
-                });
-              } : null,
-              deleteIcon: _isEditing ? const Icon(Icons.close, size: 14) : null,
-            );
-          }).toList(),
-        ),
-        if (!_isEditing && _editableInterests.isEmpty)
-          Text('No interests added yet.', style: TextStyle(color: Colors.grey[400], fontSize: 13, fontStyle: FontStyle.italic)),
-      ],
-    );
-  }
-
-  void _addInterest() {
-    final interest = _interestController.text.trim();
-    if (interest.isNotEmpty && !_editableInterests.contains(interest)) {
-      setState(() {
-        _editableInterests.add(interest);
-        _interestController.clear();
-      });
-    }
-  }
-
   Widget _buildDaysSection(Color primaryColor) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -717,6 +671,139 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Text(day, style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.w600)),
                 )).toList(),
           ),
+      ],
+    );
+  }
+
+  Widget _buildInterestsSection(Color primaryColor) {
+    final currentDept = _departmentController.text.trim();
+    String? matchedDept;
+    for (var key in _departmentInterests.keys) {
+      if (key.toLowerCase() == currentDept.toLowerCase()) {
+        matchedDept = key;
+        break;
+      }
+    }
+    
+    final availableInterests = matchedDept != null ? _departmentInterests[matchedDept]! : <String>[];
+    final Set<String> displayInterests = _isEditing 
+        ? {...availableInterests, ..._selectedInterests}
+        : _selectedInterests.toSet();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.star_outline, size: 20, color: primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              'Interests & Skills',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: displayInterests.isEmpty && !_isEditing
+            ? [Text('No interests specified', style: TextStyle(color: Colors.grey[400], fontSize: 14))]
+            : displayInterests.map((interest) {
+                final isSelected = _selectedInterests.contains(interest);
+                return _isEditing 
+                  ? FilterChip(
+                      label: Text(interest, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
+                      selected: isSelected,
+                      onSelected: (bool selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedInterests.add(interest);
+                          } else {
+                            _selectedInterests.remove(interest);
+                          }
+                        });
+                      },
+                      selectedColor: primaryColor,
+                      checkmarkColor: Colors.white,
+                      backgroundColor: Colors.grey[100],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: isSelected ? primaryColor : Colors.grey.shade300,
+                        ),
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(interest, style: TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                    );
+              }).toList(),
+        ),
+        if (_isEditing) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _customInterestController,
+                  decoration: const InputDecoration(
+                    labelText: 'Add Interest/Skill',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    fillColor: Colors.white,
+                    filled: true,
+                    isDense: true,
+                  ),
+                  onSubmitted: (value) {
+                    final text = value.trim();
+                    if (text.isNotEmpty) {
+                      final isDuplicate = _selectedInterests.any((i) => i.toLowerCase() == text.toLowerCase());
+                      if (!isDuplicate) {
+                        setState(() {
+                          _selectedInterests.add(text);
+                          _customInterestController.clear();
+                        });
+                      } else {
+                        _customInterestController.clear();
+                      }
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  final text = _customInterestController.text.trim();
+                  if (text.isNotEmpty) {
+                    final isDuplicate = _selectedInterests.any((i) => i.toLowerCase() == text.toLowerCase());
+                    if (!isDuplicate) {
+                      setState(() {
+                        _selectedInterests.add(text);
+                        _customInterestController.clear();
+                      });
+                    } else {
+                      _customInterestController.clear();
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+        ]
       ],
     );
   }

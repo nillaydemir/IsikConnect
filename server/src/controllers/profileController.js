@@ -6,7 +6,6 @@ const supabase = require('../config/supabase');
 const updateProfile = async (req, res) => {
   const { userId } = req.params;
   const { firstName, lastName, phone, department, bio, company, jobTitle, availableDays, interests } = req.body;
-
   // Authorization check
   if (req.user.id !== userId) {
     return res.status(403).json({ error: 'Forbidden: You can only update your own profile.' });
@@ -44,7 +43,7 @@ const updateProfile = async (req, res) => {
           company,
           job_title: jobTitle,
           available_days: availableDays,
-          interests: interests
+          interests
         })
         .eq('user_id', userId);
       if (mentorError) throw mentorError;
@@ -53,7 +52,7 @@ const updateProfile = async (req, res) => {
         .from('students')
         .update({
           available_days: availableDays,
-          interests: interests
+          interests
         })
         .eq('user_id', userId);
       if (studentError) throw studentError;

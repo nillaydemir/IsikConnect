@@ -70,8 +70,8 @@ class AnnouncementsPage extends StatelessWidget {
               final post = posts[index];
               return PostCard(
                 post: post,
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => PostDetailScreen(post: post)),
                   );

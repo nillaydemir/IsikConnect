@@ -61,36 +61,60 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _toggleLike() async {
+    final bool previousState = _isLiked;
+    setState(() {
+      _isLiked = !_isLiked;
+      _likeCount += _isLiked ? 1 : -1;
+      widget.post.isLikedByMe = _isLiked;
+      widget.post.likeCount = _likeCount;
+    });
     try {
-      await _forumService.toggleLike(widget.post.id, _isLiked);
-      setState(() {
-        _isLiked = !_isLiked;
-        _likeCount += _isLiked ? 1 : -1;
-      });
+      await _forumService.toggleLike(widget.post.id, previousState);
     } catch (e) {
+      setState(() {
+        _isLiked = previousState;
+        _likeCount += _isLiked ? 1 : -1;
+        widget.post.isLikedByMe = _isLiked;
+        widget.post.likeCount = _likeCount;
+      });
       debugPrint('Like error: $e');
     }
   }
 
   Future<void> _toggleBookmark() async {
+    final bool previousState = _isBookmarked;
+    setState(() {
+      _isBookmarked = !_isBookmarked;
+      widget.post.isBookmarkedByMe = _isBookmarked;
+    });
     try {
-      await _forumService.toggleBookmark(widget.post.id, _isBookmarked);
-      setState(() {
-        _isBookmarked = !_isBookmarked;
-      });
+      await _forumService.toggleBookmark(widget.post.id, previousState);
     } catch (e) {
+      setState(() {
+        _isBookmarked = previousState;
+        widget.post.isBookmarkedByMe = _isBookmarked;
+      });
       debugPrint('Bookmark error: $e');
     }
   }
 
   Future<void> _toggleParticipation() async {
+    final bool previousState = _isParticipating;
+    setState(() {
+      _isParticipating = !_isParticipating;
+      _participantCount += _isParticipating ? 1 : -1;
+      widget.post.isParticipating = _isParticipating;
+      widget.post.participantCount = _participantCount;
+    });
     try {
-      await _forumService.toggleWorkshopParticipation(widget.post.id, _isParticipating);
-      setState(() {
-        _isParticipating = !_isParticipating;
-        _participantCount += _isParticipating ? 1 : -1;
-      });
+      await _forumService.toggleWorkshopParticipation(widget.post.id, previousState);
     } catch (e) {
+      setState(() {
+        _isParticipating = previousState;
+        _participantCount += _isParticipating ? 1 : -1;
+        widget.post.isParticipating = _isParticipating;
+        widget.post.participantCount = _participantCount;
+      });
       debugPrint('Participation error: $e');
     }
   }
