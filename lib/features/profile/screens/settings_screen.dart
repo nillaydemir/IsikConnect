@@ -43,13 +43,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final userId = CurrentSession().user!.id;
         await ApiService().deleteAccount(userId);
         
-        if (!context.mounted) return;
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
            const SnackBar(content: Text('Account deleted successfully.'), backgroundColor: Colors.green),
         );
         _logout();
       } catch (e) {
-        if (!context.mounted) return;
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error deleting account: $e'), backgroundColor: Colors.red),
         );
@@ -63,7 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final passwordController = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('Change Password'),
         content: TextField(
           controller: passwordController,
@@ -71,7 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           decoration: const InputDecoration(labelText: 'New Password', border: OutlineInputBorder()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color.fromARGB(255, 38, 55, 140), foregroundColor: Colors.white),
             onPressed: () async {
@@ -79,15 +79,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password must be at least 6 characters')));
                 return;
               }
-              Navigator.pop(context);
+              Navigator.pop(dialogCtx);
               setState(() => _isLoading = true);
               try {
                 // Update password in Supabase Auth
                 await ApiService().updatePassword(passwordController.text);
-                if (!context.mounted) return;
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated successfully'), backgroundColor: Colors.green));
               } catch (e) {
-                if (!context.mounted) return;
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
               } finally {
                 if (mounted) setState(() => _isLoading = false);
@@ -106,7 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: Text(type == 'Feedback' ? 'Send Feedback' : 'Contact Support'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -126,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -136,16 +136,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
                  return;
               }
-              Navigator.pop(context);
+              Navigator.pop(dialogCtx);
               setState(() => _isLoading = true);
               try {
                 await ApiService().sendSupportRequest(subjectController.text, messageController.text);
-                if (!context.mounted) return;
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Request sent successfully!'), backgroundColor: Colors.green),
                 );
               } catch (e) {
-                if (!context.mounted) return;
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                 );

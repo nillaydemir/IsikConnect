@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../models/forum_post_model.dart';
 import '../models/forum_comment_model.dart';
 import '../../../core/services/current_session.dart';
@@ -24,7 +25,7 @@ class ForumService {
           controller.add(posts);
         }
       } catch (e) {
-        print('Error refreshing posts: $e');
+        debugPrint('Error refreshing posts: $e');
       }
     }
 
@@ -74,7 +75,7 @@ class ForumService {
           controller.add(unreadPosts);
         }
       } catch (e) {
-        print('Error updating unread posts: $e');
+        debugPrint('Error updating unread posts: $e');
       }
     }
 
@@ -121,7 +122,7 @@ class ForumService {
           controller.add(unreadCount);
         }
       } catch (e) {
-        print('Error updating unread count: $e');
+        debugPrint('Error updating unread count: $e');
       }
     }
 
@@ -230,7 +231,7 @@ class ForumService {
             .upsert({'post_id': postId, 'user_id': _currentUserId});
       }
     } catch (e) {
-      print('Toggle like error: $e');
+      debugPrint('Toggle like error: $e');
     }
   }
 

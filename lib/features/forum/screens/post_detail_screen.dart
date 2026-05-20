@@ -49,7 +49,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     try {
       await _forumService.addComment(widget.post.id, _commentController.text.trim());
       _commentController.clear();
-      FocusScope.of(context).unfocus();
+      if (mounted) {
+        FocusScope.of(context).unfocus();
+      }
       setState(() {}); // trigger rebuild to fetch new comments
     } catch (e) {
       if (mounted) {
@@ -145,6 +147,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+              color: _isBookmarked ? primaryColor : Colors.grey.shade600,
+            ),
+            onPressed: _toggleBookmark,
+          ),
+        ],
       ),
       body: Column(
         children: [

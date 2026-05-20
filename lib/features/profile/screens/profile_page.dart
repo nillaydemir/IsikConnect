@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/api_service.dart';
-import '../../shared/screens/chat_screen.dart';
 import 'settings_screen.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -86,7 +85,7 @@ class _ProfilePageState extends State<ProfilePage> {
         });
       }
     } catch (e) {
-      print('Error fetching departments: $e');
+      debugPrint('Error fetching departments: $e');
     }
   }
 
@@ -134,12 +133,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchReviews() async {
     if (_user.role != 'mentor') {
-      print('Not a mentor, skipping reviews fetch. Role: ${_user.role}');
+      debugPrint('Not a mentor, skipping reviews fetch. Role: ${_user.role}');
       return;
     }
 
     try {
-      print('Fetching reviews for mentor ID: ${_user.id}');
+      debugPrint('Fetching reviews for mentor ID: ${_user.id}');
       // Try to fetch via students join first, if that fails, try direct users join
       final response = await Supabase.instance.client
           .from('reviews')
@@ -147,12 +146,12 @@ class _ProfilePageState extends State<ProfilePage> {
           .eq('mentor_id', _user.id)
           .order('created_at', ascending: false);
 
-      print('Reviews fetched: ${response.length}');
+      debugPrint('Reviews fetched: ${response.length}');
       setState(() {
         _reviews = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      print('Error fetching reviews: $e');
+      debugPrint('Error fetching reviews: $e');
       // Fallback for cases where FK might be different
       try {
         final response = await Supabase.instance.client
@@ -164,7 +163,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _reviews = List<Map<String, dynamic>>.from(response);
         });
       } catch (e2) {
-         print('Fallback fetch also failed: $e2');
+         debugPrint('Fallback fetch also failed: $e2');
       }
     }
   }

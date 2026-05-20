@@ -110,11 +110,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         participantLimit: int.tryParse(_limitController.text.trim()),
       );
 
-      if (!context.mounted) return;
+      if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post created successfully!'), backgroundColor: Colors.green));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -149,7 +151,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           children: [
             // Category Selector
             DropdownButtonFormField<String>(
-              value: _category,
+              initialValue: _category,
               decoration: InputDecoration(
                 labelText: 'Category',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

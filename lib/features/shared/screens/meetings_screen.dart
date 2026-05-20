@@ -183,14 +183,16 @@ class _MeetingListState extends State<_MeetingList> {
     });
     try {
       await _meetingService.registerForWorkshop(meetingId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Successfully registered for workshop!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Successfully registered for workshop!')),
+        );
+      }
       widget.onRefresh();
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to register: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to register: $e')));
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -493,7 +495,7 @@ class _MeetingListState extends State<_MeetingList> {
                           return;
                         }
 
-                        if (isTooEarly && meetingDate != null) {
+                        if (isTooEarly) {
                           final validTime = meetingDate.subtract(
                             const Duration(minutes: 10),
                           );

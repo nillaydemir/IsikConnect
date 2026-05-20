@@ -1,5 +1,3 @@
-import 'forum_comment_model.dart';
-
 class ForumPost {
   final String id;
   final String authorId;
@@ -89,9 +87,9 @@ class ForumPost {
       authorName: name,
       authorRole: role,
       authorProfileImageUrl: profileImage,
-      likeCount: json['forum_likes'] != null ? (json['forum_likes'] as List).length : 0,
-      commentCount: json['forum_comments'] != null ? (json['forum_comments'] as List).length : 0,
-      participantCount: json['forum_workshop_participants'] != null ? (json['forum_workshop_participants'] as List).length : 0,
+      likeCount: likesList.length,
+      commentCount: commentsList.length,
+      participantCount: participantsList.length,
       isLikedByMe: likedByMe,
       isBookmarkedByMe: bookmarkedByMe,
       isParticipating: participating,
