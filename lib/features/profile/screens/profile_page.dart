@@ -631,6 +631,25 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: Icons.work_outline,
               isEditable: _isEditing,
             ),
+            const Divider(height: 32),
+            _buildReadOnlyField(
+              label: 'Graduation Year',
+              value: _user.graduationYear ?? 'Not specified',
+              icon: Icons.school,
+            ),
+            const Divider(height: 32),
+            _buildReadOnlyField(
+              label: 'Max Students',
+              value: _user.maxStudents?.toString() ?? 'Not specified',
+              icon: Icons.group,
+            ),
+          ] else if (_user.role == 'student') ...[
+            const Divider(height: 32),
+            _buildReadOnlyField(
+              label: 'Class Level',
+              value: _user.classLevel ?? 'Not specified',
+              icon: Icons.class_outlined,
+            ),
           ],
           const Divider(height: 32),
           _buildDaysSection(primaryColor),
@@ -878,6 +897,37 @@ class _ProfilePageState extends State<ProfilePage> {
               fontWeight: FontWeight.w500,
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20, color: const Color.fromARGB(255, 38, 55, 140)),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value.isEmpty ? 'Not specified' : value,
+          style: TextStyle(
+            fontSize: 16, 
+            color: value.isEmpty || value == 'Not specified' ? Colors.grey[400] : const Color(0xFF0A1930),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }

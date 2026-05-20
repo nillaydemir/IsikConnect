@@ -435,6 +435,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
   bool _isLoading = false;
   String? _errorMessage;
   StreamSubscription? _studentSubscription;
+  int _cancelledCount = 0;
 
   @override
   void initState() {
@@ -487,6 +488,10 @@ class _MyMentorTabState extends State<_MyMentorTab> {
       
       // Fetch persistent match from database
       await _fetchExistingMatch();
+      
+      // Fetch cancelled count
+      _cancelledCount = await MatchingService().getCancelledMatchCount(user.id);
+      if (mounted) setState(() {});
     }
   }
 
@@ -659,6 +664,13 @@ class _MyMentorTabState extends State<_MyMentorTab> {
       return;
     }
 
+    if (_cancelledCount >= 2) {
+      setState(() {
+        _errorMessage = "You have used all your matching rights for this academic year.";
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -689,11 +701,21 @@ class _MyMentorTabState extends State<_MyMentorTab> {
   void _cancelMatch() async {
     if (_currentStudent == null || _matchedMentor == null) return;
 
+    final remainingRights = 2 - _cancelledCount;
+    String contentText = 'Are you sure you want to end your mentorship with ${_matchedMentor!.name}?';
+    if (remainingRights > 1) {
+      contentText += '\n\nYou have $remainingRights matching rights left for this academic year.';
+    } else if (remainingRights == 1) {
+      contentText += '\n\nWARNING: This is your last cancellation right! If you cancel this match, you will NOT be able to match with a new mentor again until September.';
+    } else {
+      contentText += '\n\nWARNING: You have 0 matching rights left! If you cancel this match, you will NOT be able to match with a new mentor again until September.';
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Cancel Match'),
-        content: Text('Are you sure you want to end your mentorship with ${_matchedMentor!.name}?'),
+        content: Text(contentText),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
           TextButton(
@@ -718,6 +740,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
       setState(() {
         _matchedMentor = null;
         _errorMessage = "Match cancelled successfully.";
+        _cancelledCount++;
       });
     } catch (e) {
       setState(() {
@@ -776,19 +799,41 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                   ),
                 ),
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _runMatching,
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text('Find Mentor'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+              if (_cancelledCount >= 2)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.shade200),
                   ),
-                  backgroundColor: const Color.fromARGB(255, 38, 55, 140),
-                  foregroundColor: Colors.white,
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.red.shade700),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'You have used all your matching rights for this academic year. You cannot match with a new mentor until September.',
+                          style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ElevatedButton.icon(
+                  onPressed: _runMatching,
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Find Mentor'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    backgroundColor: const Color.fromARGB(255, 38, 55, 140),
+                    foregroundColor: Colors.white,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
