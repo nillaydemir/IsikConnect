@@ -21,7 +21,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   late bool _isLiked;
   late int _likeCount;
-  late bool _isBookmarked;
+
   late bool _isParticipating;
   late int _participantCount;
   late bool _isSolved;
@@ -32,7 +32,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     super.initState();
     _isLiked = widget.post.isLikedByMe;
     _likeCount = widget.post.likeCount;
-    _isBookmarked = widget.post.isBookmarkedByMe;
+
     _isParticipating = widget.post.isParticipating;
     _participantCount = widget.post.participantCount;
     _isSolved = widget.post.isSolved;
@@ -48,6 +48,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     setState(() => _isCommenting = true);
     try {
       await _forumService.addComment(widget.post.id, _commentController.text.trim());
+      if (!mounted) return;
       _commentController.clear();
       FocusScope.of(context).unfocus();
       setState(() {}); // trigger rebuild to fetch new comments
@@ -81,22 +82,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  Future<void> _toggleBookmark() async {
-    final bool previousState = _isBookmarked;
-    setState(() {
-      _isBookmarked = !_isBookmarked;
-      widget.post.isBookmarkedByMe = _isBookmarked;
-    });
-    try {
-      await _forumService.toggleBookmark(widget.post.id, previousState);
-    } catch (e) {
-      setState(() {
-        _isBookmarked = previousState;
-        widget.post.isBookmarkedByMe = _isBookmarked;
-      });
-      debugPrint('Bookmark error: $e');
-    }
-  }
 
   Future<void> _toggleParticipation() async {
     final bool previousState = _isParticipating;

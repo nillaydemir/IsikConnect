@@ -83,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
                     // --- MOCK ADMIN CHECK ---
                     if (email == 'admin@isikconnect.edu.tr' && rawPassword == 'admin123') {
                       CurrentSession().user = AppUser.fromJson({
-                        'id': 'mock-admin-id',
+                        'id': '00000000-0000-0000-0000-000000000000',
                         'email': 'admin@isikconnect.edu.tr',
                         'role': 'admin',
                         'created_at': DateTime.now().toIso8601String(),

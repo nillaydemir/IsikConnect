@@ -48,7 +48,7 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
-    final role = CurrentSession().user?.role ?? 'student';
+
 
     return Scaffold(
       backgroundColor: Colors.grey[50],

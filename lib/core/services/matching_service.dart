@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../models/user_models.dart';
 
 class MatchingService {
@@ -26,7 +27,7 @@ class MatchingService {
           .select('mentor_id, rating')
           .inFilter('mentor_id', mentorIds);
     } catch (e) {
-      print('Warning: Could not fetch reviews (table may not exist or other error): $e');
+      debugPrint('Warning: Could not fetch reviews (table may not exist or other error): $e');
     }
 
     // 3. Map reviews by mentor_id for easy lookup
@@ -37,7 +38,7 @@ class MatchingService {
       reviewsByMentor.putIfAbsent(mid, () => []).add(rating);
     }
 
-    print('Matching Debug: Found ${response.length} approved mentors in database.');
+    debugPrint('Matching Debug: Found ${response.length} approved mentors in database.');
 
     List<Mentor> mentors = [];
     for (var row in response) {
@@ -93,9 +94,9 @@ class MatchingService {
       return b.reviewCount.compareTo(a.reviewCount);
     });
 
-    print('Final list of mentors to pass to algorithm: ${mentors.length}');
+    debugPrint('Final list of mentors to pass to algorithm: ${mentors.length}');
     if (mentors.isEmpty) {
-      print('REASON: No mentors passed the initial filters (is_approved, capacity, or missing data).');
+      debugPrint('REASON: No mentors passed the initial filters (is_approved, capacity, or missing data).');
       return null;
     }
 
@@ -188,8 +189,8 @@ class MatchingService {
 
   int _calculateMatchScore(Student student, Mentor mentor) {
     int score = 0;
-    print('--- Debug Matching: ${student.name} vs ${mentor.name} ---');
-    print('Student Days: ${student.availableDays}, Mentor Days: ${mentor.availableDays}');
+    debugPrint('--- Debug Matching: ${student.name} vs ${mentor.name} ---');
+    debugPrint('Student Days: ${student.availableDays}, Mentor Days: ${mentor.availableDays}');
 
     // 1. HARD CONSTRAINT: Must have at least one common available day
     final commonDays = student.availableDays.where((day) => 
@@ -197,23 +198,23 @@ class MatchingService {
     ).toList();
 
     if (commonDays.isEmpty) {
-      print('REJECTED: No common available days.');
+      debugPrint('REJECTED: No common available days.');
       return 0; 
     }
 
     // 2. HARD CONSTRAINT: Department must match
     if (student.department.trim().toLowerCase() != mentor.department.trim().toLowerCase()) {
-      print('REJECTED: Department mismatch ("${student.department}" vs "${mentor.department}")');
+      debugPrint('REJECTED: Department mismatch ("${student.department}" vs "${mentor.department}")');
       return 0;
     }
 
     // 3. Department Match Bonus (Now implicit since it's required, but we give a base score)
     score += departmentMatchScore;
-    print('Department Match! (+$departmentMatchScore)');
+    debugPrint('Department Match! (+$departmentMatchScore)');
 
     // 4. Add points for common days
     score += commonDays.length * 5;
-    print('Common Days Score: ${commonDays.length * 5}');
+    debugPrint('Common Days Score: ${commonDays.length * 5}');
 
     // 5. Skills Match
     int skillMatches = 0;
@@ -226,9 +227,9 @@ class MatchingService {
         skillMatches++;
       }
     }
-    if (skillMatches > 0) print('Skill Matches: $skillMatches (+${skillMatches * skillMatchScore})');
+    if (skillMatches > 0) debugPrint('Skill Matches: $skillMatches (+${skillMatches * skillMatchScore})');
 
-    print('Final Total Score: $score');
+    debugPrint('Final Total Score: $score');
     return score;
   }
 }

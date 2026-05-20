@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/models/app_user_model.dart';
+import '../../../profile/screens/profile_page.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -157,6 +158,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                 color: user.isApproved ? Colors.green : Colors.amber,
                                 size: 20,
                               ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProfilePage(targetUser: user),
+                                  ),
+                                );
+                              },
                             ),
                           );
                         },

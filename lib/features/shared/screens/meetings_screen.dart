@@ -159,11 +159,13 @@ class _MeetingListState extends State<_MeetingList> {
     });
     try {
       await _meetingService.registerForWorkshop(meetingId);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Successfully registered for workshop!')),
       );
       widget.onRefresh();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to register: $e')),
       );

@@ -27,10 +27,10 @@ class ApiService {
     } else {
       // Handle PlatformFile from file_picker
       final platformFile = file;
-      print('--- Upload Debug ---');
-      print('Name: ${platformFile.name}');
-      print('Path: ${platformFile.path}');
-      print('Bytes: ${platformFile.bytes?.length}');
+      debugPrint('--- Upload Debug ---');
+      debugPrint('Name: ${platformFile.name}');
+      debugPrint('Path: ${platformFile.path}');
+      debugPrint('Bytes: ${platformFile.bytes?.length}');
 
       if (!kIsWeb && platformFile.path != null) {
         // Mobile / Local path available

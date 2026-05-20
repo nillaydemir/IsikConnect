@@ -6,10 +6,10 @@ class MentorRequestCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const MentorRequestCard({
-    Key? key,
+    super.key,
     required this.application,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +30,7 @@ class MentorRequestCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: primaryColor.withOpacity(0.1),
+                  backgroundColor: primaryColor.withValues(alpha: 0.1),
                   backgroundImage: application.avatarUrl != null 
                       ? NetworkImage(application.avatarUrl!) 
                       : null,

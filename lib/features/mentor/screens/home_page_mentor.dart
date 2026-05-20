@@ -8,7 +8,7 @@ import '../../shared/screens/meetings_screen.dart';
 import '../../shared/screens/create_meeting_screen.dart';
 import '../../shared/screens/forum_screen.dart';
 import '../../forum/services/forum_service.dart';
-import '../../forum/models/forum_post_model.dart';
+
 import '../../../core/services/meeting_service.dart';
 import '../../../core/services/message_service.dart';
 
@@ -186,7 +186,7 @@ class _HomeTabState extends State<_HomeTab> {
         }).toList();
       });
     } catch (e) {
-      print('Error fetching upcoming meetings: $e');
+      debugPrint('Error fetching upcoming meetings: $e');
     }
   }
 
@@ -209,7 +209,7 @@ class _HomeTabState extends State<_HomeTab> {
         _mentees = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      print('Error fetching mentees: $e');
+      debugPrint('Error fetching mentees: $e');
     } finally {
       if (mounted) {
         setState(() {

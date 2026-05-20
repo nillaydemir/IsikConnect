@@ -9,7 +9,7 @@ import '../../shared/screens/chat_screen.dart';
 import '../../shared/screens/forum_screen.dart';
 import '../../shared/screens/meetings_screen.dart';
 import '../../forum/services/forum_service.dart';
-import '../../forum/models/forum_post_model.dart';
+
 import '../../../core/services/meeting_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/message_service.dart';
@@ -210,7 +210,7 @@ class _HomeTabState extends State<_HomeTab> {
         }).toList();
       });
     } catch (e) {
-      print('Error fetching data: $e');
+      debugPrint('Error fetching data: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -492,7 +492,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
             reviewCount = reviewsRes.length;
           }
         } catch (e) {
-          print('Warning: Could not fetch reviews for mentor: $e');
+          debugPrint('Warning: Could not fetch reviews for mentor: $e');
         }
 
         _matchedMentor = Mentor(
@@ -513,7 +513,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
         );
       }
     } catch (e) {
-      print('Error fetching existing match: $e');
+      debugPrint('Error fetching existing match: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -646,7 +646,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
       setState(() {
         _errorMessage = 'Error finding mentor: $e';
       });
-      print('Matching error: $e');
+      debugPrint('Matching error: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -654,49 +654,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
     }
   }
 
-  void _cancelMatch() async {
-    if (_currentStudent == null || _matchedMentor == null) return;
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel Match'),
-        content: Text('Are you sure you want to end your mentorship with ${_matchedMentor!.name}?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('End Match'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final matchingService = MatchingService();
-      await matchingService.cancelMatch(_currentStudent!.id, _matchedMentor!.id);
-      
-      setState(() {
-        _matchedMentor = null;
-        _errorMessage = "Match cancelled successfully.";
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error cancelling match: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

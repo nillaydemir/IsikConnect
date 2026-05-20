@@ -4,7 +4,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/services/api_service.dart';
 
@@ -162,10 +161,10 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      print('--- Registering Button Pressed ---');
-      print('File Name: $_selectedFileName');
-      print('File Path: $_selectedFilePath');
-      print('PlatformFile present: ${_selectedPlatformFile != null}');
+      debugPrint('--- Registering Button Pressed ---');
+      debugPrint('File Name: $_selectedFileName');
+      debugPrint('File Path: $_selectedFilePath');
+      debugPrint('PlatformFile present: ${_selectedPlatformFile != null}');
       
       final email = _emailController.text.trim();
       final rawPassword = _passwordController.text.trim();
@@ -205,9 +204,9 @@ class _RegisterPageState extends State<RegisterPage> {
               backgroundColor: Colors.green,
             ),
           );
-          Future.delayed(const Duration(seconds: 1), () {
-            Navigator.pop(context);
-          });
+          await Future.delayed(const Duration(seconds: 1));
+          if (!mounted) return;
+          Navigator.pop(context);
         } else {
           throw result['message'] ?? 'Registration failed.';
         }
@@ -239,9 +238,9 @@ class _RegisterPageState extends State<RegisterPage> {
               backgroundColor: Colors.green,
             ),
           );
-          Future.delayed(const Duration(seconds: 1), () {
-            Navigator.pop(context);
-          });
+          await Future.delayed(const Duration(seconds: 1));
+          if (!mounted) return;
+          Navigator.pop(context);
         } else {
           throw result['message'] ?? 'Student registration failed.';
         }
@@ -459,7 +458,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 38,
                 55,
                 140,
-              ).withOpacity(0.15),
+              ).withValues(alpha: 0.15),
               checkmarkColor: const Color.fromARGB(255, 38, 55, 140),
               labelStyle: TextStyle(
                 color: isSelected
@@ -513,7 +512,7 @@ class _RegisterPageState extends State<RegisterPage> {
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color.fromARGB(255, 38, 55, 140).withOpacity(0.05)
+              ? const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.05)
               : Colors.white,
           border: Border.all(
             color: isSelected
@@ -719,7 +718,7 @@ class _RegisterPageState extends State<RegisterPage> {
         filled: true,
         fillColor: Colors.white,
       ),
-      value: _selectedDepartment,
+      initialValue: _selectedDepartment,
       isExpanded: true,
       items: _departmentInterests.keys.map((String dept) {
         return DropdownMenuItem<String>(
@@ -753,7 +752,7 @@ class _RegisterPageState extends State<RegisterPage> {
         filled: true,
         fillColor: Colors.white,
       ),
-      value: currentValue,
+      initialValue: currentValue,
       isExpanded: true,
       items: options.map((String opt) {
         return DropdownMenuItem<String>(value: opt, child: Text(opt));
@@ -845,7 +844,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 38,
                 55,
                 140,
-              ).withOpacity(0.15),
+              ).withValues(alpha: 0.15),
               checkmarkColor: const Color.fromARGB(255, 38, 55, 140),
               labelStyle: TextStyle(
                 color: isSelected

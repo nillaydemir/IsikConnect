@@ -52,7 +52,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (showLoading) setState(() => _isLoading = true);
     try {
       final myId = CurrentSession().user!.id;
-      final myRole = CurrentSession().user!.role;
+
 
       // 1. Fetch active matches
       final matchesResponse = await _supabase
@@ -62,21 +62,30 @@ class _ChatScreenState extends State<ChatScreen> {
           .eq('status', 'active');
 
       if (matchesResponse.isEmpty) {
-        setState(() {
-          _conversations = [];
-          _isLoading = false;
-        });
-        return;
+        // Don't return yet, we still need to check messages
       }
 
       // 2. Extract IDs of the other users
-      List<String> otherUserIds = [];
+      Set<String> otherUserIds = {};
       for (var match in matchesResponse) {
         if (match['student_id'] == myId) {
           otherUserIds.add(match['mentor_id']);
         } else {
           otherUserIds.add(match['student_id']);
         }
+      }
+
+      // 2.5 Fetch users we have chatted with (e.g., admins or past matches)
+      final messagesResponse = await _supabase
+          .from('messages')
+          .select('sender_id, receiver_id')
+          .or('sender_id.eq.$myId,receiver_id.eq.$myId');
+          
+      for (var msg in messagesResponse) {
+        final senderId = msg['sender_id'] as String;
+        final receiverId = msg['receiver_id'] as String;
+        if (senderId != myId) otherUserIds.add(senderId);
+        if (receiverId != myId) otherUserIds.add(receiverId);
       }
 
       if (otherUserIds.isEmpty) {
@@ -91,9 +100,22 @@ class _ChatScreenState extends State<ChatScreen> {
       final usersResponse = await _supabase
           .from('users')
           .select()
-          .inFilter('id', otherUserIds);
+          .inFilter('id', otherUserIds.toList());
 
       final users = usersResponse.map((u) => AppUser.fromJson(u)).toList();
+
+      // Ensure mock admin is in the users list if we chatted with them
+      if (otherUserIds.contains('00000000-0000-0000-0000-000000000000') && 
+          !users.any((u) => u.id == '00000000-0000-0000-0000-000000000000')) {
+        users.add(AppUser.fromJson({
+          'id': '00000000-0000-0000-0000-000000000000',
+          'email': 'admin@isikconnect.edu.tr',
+          'role': 'admin',
+          'first_name': 'System',
+          'last_name': 'Admin',
+          'created_at': DateTime.now().toIso8601String()
+        }));
+      }
 
       // 4. Fetch last message for each conversation
       List<ConversationItem> convos = [];

@@ -1,4 +1,3 @@
-import 'forum_comment_model.dart';
 
 class ForumPost {
   final String id;
@@ -64,7 +63,6 @@ class ForumPost {
 
     // Handle counts and relations
     final likesList = (json['forum_likes'] as List?) ?? [];
-    final commentsList = (json['forum_comments'] as List?) ?? [];
     final bookmarksList = (json['forum_bookmarks'] as List?) ?? [];
     final participantsList = (json['forum_workshop_participants'] as List?) ?? [];
 

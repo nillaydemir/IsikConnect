@@ -9,6 +9,6 @@ class AppTheme {
       // Add more specific theme properties later
     );
   }
-
+  
   // Add dark theme if needed
 }
