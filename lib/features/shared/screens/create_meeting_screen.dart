@@ -66,6 +66,22 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
     setState(() => _isCreating = true);
 
     try {
+      final selectedDateTime = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
+
+      if (selectedDateTime.isBefore(DateTime.now())) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cannot create a meeting in the past')),
+        );
+        setState(() => _isCreating = false);
+        return;
+      }
+
       int? capacity;
       if (_selectedType == 'Workshop') {
         capacity = int.tryParse(_capacityController.text) ?? 10;

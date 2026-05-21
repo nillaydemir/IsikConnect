@@ -13,7 +13,7 @@ class VideoCallScreen extends StatefulWidget {
 }
 
 class _VideoCallScreenState extends State<VideoCallScreen> {
-  int? _remoteUid;
+  final List<int> _remoteUids = [];
   bool _localUserJoined = false;
   bool _muted = false;
   bool _videoDisabled = false;
@@ -51,14 +51,16 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint("remote user $remoteUid joined");
           setState(() {
-            _remoteUid = remoteUid;
+            if (!_remoteUids.contains(remoteUid)) {
+              _remoteUids.add(remoteUid);
+            }
           });
         },
         onUserOffline: (RtcConnection connection, int remoteUid,
             UserOfflineReasonType reason) {
           debugPrint("remote user $remoteUid left channel");
           setState(() {
-            _remoteUid = null;
+            _remoteUids.remove(remoteUid);
           });
         },
         onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
@@ -189,16 +191,36 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     );
   }
 
-  // Display remote user's video
+  // Display remote user's video(s)
   Widget _remoteVideo() {
-    if (_remoteUid != null) {
-      return AgoraVideoView(
-        controller: VideoViewController.remote(
-          rtcEngine: _engine,
-          canvas: VideoCanvas(uid: _remoteUid),
-          connection: RtcConnection(channelId: widget.channelName),
-        ),
-      );
+    if (_remoteUids.isNotEmpty) {
+      if (_remoteUids.length == 1) {
+        return AgoraVideoView(
+          controller: VideoViewController.remote(
+            rtcEngine: _engine,
+            canvas: VideoCanvas(uid: _remoteUids.first),
+            connection: RtcConnection(channelId: widget.channelName),
+          ),
+        );
+      } else {
+        // Grid View for multiple participants
+        return GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 1.0,
+          ),
+          itemCount: _remoteUids.length,
+          itemBuilder: (context, index) {
+            return AgoraVideoView(
+              controller: VideoViewController.remote(
+                rtcEngine: _engine,
+                canvas: VideoCanvas(uid: _remoteUids[index]),
+                connection: RtcConnection(channelId: widget.channelName),
+              ),
+            );
+          },
+        );
+      }
     } else {
       return const Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -206,7 +228,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
           CircularProgressIndicator(color: Colors.white54),
           SizedBox(height: 20),
           Text(
-            'Waiting for other user to join...',
+            'Waiting for others to join...',
             style: TextStyle(color: Colors.white, fontSize: 16),
             textAlign: TextAlign.center,
           ),

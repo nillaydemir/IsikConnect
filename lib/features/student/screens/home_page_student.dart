@@ -23,19 +23,32 @@ class HomePageStudent extends StatefulWidget {
 
 class _HomePageStudentState extends State<HomePageStudent> {
   int _selectedIndex = 0;
+  final GlobalKey<_HomeTabState> _homeTabKey = GlobalKey<_HomeTabState>();
+  final GlobalKey<MeetingsScreenState> _meetingsTabKey = GlobalKey<MeetingsScreenState>();
 
-  final List<Widget> _pages = const [
-    _HomeTab(),
-    ChatScreen(),
-    ForumScreen(),
-    MeetingsScreen(),
-    ProfilePage(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      _HomeTab(key: _homeTabKey),
+      const ChatScreen(),
+      const ForumScreen(),
+      MeetingsScreen(key: _meetingsTabKey),
+      const ProfilePage(),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 0) {
+      _homeTabKey.currentState?._fetchData();
+    } else if (index == 3) {
+      _meetingsTabKey.currentState?.fetchMeetings();
+    }
   }
 
   @override
@@ -161,7 +174,7 @@ class _HomePageStudentState extends State<HomePageStudent> {
 }
 
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  const _HomeTab({super.key});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();

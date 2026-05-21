@@ -19,11 +19,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   
-  // Workshop specific
-  final _linkController = TextEditingController();
-  final _limitController = TextEditingController();
-  DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
+  // Removed workshop specific controllers as it's now just an announcement
+
 
   bool _isLoading = false;
   PlatformFile? _selectedImage;
@@ -41,27 +38,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  Future<void> _selectDate() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().add(const Duration(days: 1)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (date != null) {
-      setState(() => _selectedDate = date);
-    }
-  }
-
-  Future<void> _selectTime() async {
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-    if (time != null) {
-      setState(() => _selectedTime = time);
-    }
-  }
+  // Removed _selectDate and _selectTime methods
 
   Future<void> _submit() async {
     if (_contentController.text.trim().isEmpty) {
@@ -69,17 +46,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       return;
     }
 
-    DateTime? eventDate;
-    if (_category == 'Workshops') {
-      if (_selectedDate == null || _selectedTime == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select date and time for the workshop')));
-        return;
-      }
-      eventDate = DateTime(
-        _selectedDate!.year, _selectedDate!.month, _selectedDate!.day,
-        _selectedTime!.hour, _selectedTime!.minute,
-      );
-    }
+    // Removed eventDate validation since forum workshops are just announcements
 
     setState(() => _isLoading = true);
 
@@ -105,9 +72,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         title: _titleController.text.trim(),
         content: _contentController.text.trim(),
         imageUrl: imageUrl,
-        eventDate: eventDate,
-        meetingLink: _linkController.text.trim().isEmpty ? null : _linkController.text.trim(),
-        participantLimit: int.tryParse(_limitController.text.trim()),
+        eventDate: null,
+        meetingLink: null,
+        participantLimit: null,
       );
 
       if (!mounted) return;
@@ -179,48 +146,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             ),
             const Divider(),
 
-            if (_category == 'Workshops') ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _selectDate,
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(_selectedDate == null ? 'Select Date' : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _selectTime,
-                      icon: const Icon(Icons.access_time),
-                      label: Text(_selectedTime == null ? 'Select Time' : _selectedTime!.format(context)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _linkController,
-                decoration: InputDecoration(
-                  labelText: 'Meeting Link (Optional)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.link),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _limitController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Participant Limit (Optional)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.group),
-                ),
-              ),
-              const Divider(),
-            ],
+            // Removed workshop specific fields since it's just an announcement
+
 
             TextField(
               controller: _contentController,

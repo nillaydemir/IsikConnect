@@ -20,19 +20,32 @@ class HomePageMentor extends StatefulWidget {
 
 class _HomePageMentorState extends State<HomePageMentor> {
   int _selectedIndex = 0;
+  final GlobalKey<_HomeTabState> _homeTabKey = GlobalKey<_HomeTabState>();
+  final GlobalKey<MeetingsScreenState> _meetingsTabKey = GlobalKey<MeetingsScreenState>();
 
-  final List<Widget> _pages = const [
-    _HomeTab(),
-    ChatScreen(),
-    ForumScreen(),
-    MeetingsScreen(),
-    ProfilePage(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      _HomeTab(key: _homeTabKey),
+      const ChatScreen(),
+      const ForumScreen(),
+      MeetingsScreen(key: _meetingsTabKey),
+      const ProfilePage(),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 0) {
+      _homeTabKey.currentState?._fetchUpcomingMeetings();
+    } else if (index == 3) {
+      _meetingsTabKey.currentState?.fetchMeetings();
+    }
   }
 
   @override
@@ -155,7 +168,7 @@ class _HomePageMentorState extends State<HomePageMentor> {
 // Reusable tab for Home body
 
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  const _HomeTab({super.key});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -174,6 +187,8 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   Future<void> _fetchUpcomingMeetings() async {
+    final mentorId = CurrentSession().user?.id;
+    if (mentorId == null) return;
     try {
       final meetings = await MeetingService().getMeetings();
       final now = DateTime.now();
@@ -181,7 +196,8 @@ class _HomeTabState extends State<_HomeTab> {
         _upcomingMeetings = meetings.where((m) {
           if (m['meeting_date'] == null) return false;
           final date = DateTime.parse(m['meeting_date']);
-          return date.isAfter(now);
+          if (!date.isAfter(now)) return false;
+          return m['mentor_id'] == mentorId;
         }).toList();
       });
     } catch (e) {
@@ -265,11 +281,14 @@ class _HomeTabState extends State<_HomeTab> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                final result = await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const CreateMeetingScreen()),
                 );
+                if (result == true) {
+                  _fetchUpcomingMeetings();
+                }
               },
               icon: const Icon(Icons.add_circle_outline),
               label: const Text('Create Meeting'),

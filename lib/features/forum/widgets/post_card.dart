@@ -168,24 +168,7 @@ class _PostCardState extends State<PostCard> {
                     maxLines: isWorkshop ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
-                  // Workshop specifics
-                  if (isWorkshop && widget.post.eventDate != null) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Icon(Icons.event, size: 16, color: primaryColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          DateFormat('MMM d, h:mm a').format(widget.post.eventDate!),
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 13),
-                        ),
-                        const Spacer(),
-                        if (widget.post.participantLimit != null)
-                           Text('${widget.post.participantCount}/${widget.post.participantLimit} Joined', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                      ],
-                    ),
-                  ],
+                  // Removed Workshop specifics from card
 
                   // Tags
                   if (widget.post.tags.isNotEmpty) ...[

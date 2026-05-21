@@ -22,8 +22,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   late bool _isLiked;
   late int _likeCount;
   late bool _isBookmarked;
-  late bool _isParticipating;
-  late int _participantCount;
+  // Removed _isParticipating and _participantCount as workshops are just announcements
   late bool _isSolved;
   late String? _acceptedAnswerId;
 
@@ -33,8 +32,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     _isLiked = widget.post.isLikedByMe;
     _likeCount = widget.post.likeCount;
     _isBookmarked = widget.post.isBookmarkedByMe;
-    _isParticipating = widget.post.isParticipating;
-    _participantCount = widget.post.participantCount;
+    // Removed participant logic
     _isSolved = widget.post.isSolved;
     _acceptedAnswerId = widget.post.acceptedAnswerId;
     
@@ -100,26 +98,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
-  Future<void> _toggleParticipation() async {
-    final bool previousState = _isParticipating;
-    setState(() {
-      _isParticipating = !_isParticipating;
-      _participantCount += _isParticipating ? 1 : -1;
-      widget.post.isParticipating = _isParticipating;
-      widget.post.participantCount = _participantCount;
-    });
-    try {
-      await _forumService.toggleWorkshopParticipation(widget.post.id, previousState);
-    } catch (e) {
-      setState(() {
-        _isParticipating = previousState;
-        _participantCount += _isParticipating ? 1 : -1;
-        widget.post.isParticipating = _isParticipating;
-        widget.post.participantCount = _participantCount;
-      });
-      debugPrint('Participation error: $e');
-    }
-  }
+  // Removed _toggleParticipation logic since forum workshops are just announcements
 
   Future<void> _acceptAnswer(String commentId) async {
     try {
@@ -244,62 +223,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     child: Image.network(widget.post.imageUrl!, width: double.infinity, fit: BoxFit.cover),
                   ),
                 
-                // Workshop specific card
-                if (isWorkshop) ...[
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.blue.shade100),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Workshop Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        const SizedBox(height: 12),
-                        if (widget.post.eventDate != null)
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
-                              const SizedBox(width: 8),
-                              Text(DateFormat('EEEE, MMMM d, yyyy • h:mm a').format(widget.post.eventDate!), style: const TextStyle(fontWeight: FontWeight.w500)),
-                            ],
-                          ),
-                        const SizedBox(height: 8),
-                        if (widget.post.participantLimit != null)
-                          Row(
-                            children: [
-                              const Icon(Icons.group, size: 16, color: Colors.black54),
-                              const SizedBox(width: 8),
-                              Text('$_participantCount / ${widget.post.participantLimit} Participants', style: const TextStyle(fontWeight: FontWeight.w500)),
-                            ],
-                          ),
-                        const SizedBox(height: 16),
-                        Builder(
-                          builder: (context) {
-                            final bool isPast = widget.post.eventDate != null && widget.post.eventDate!.isBefore(DateTime.now());
-                            return SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: isPast ? null : _toggleParticipation,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: isPast ? Colors.grey.shade300 : (_isParticipating ? Colors.white : primaryColor),
-                                  foregroundColor: isPast ? Colors.grey.shade600 : (_isParticipating ? Colors.red : Colors.white),
-                                  elevation: 0,
-                                  side: (!isPast && _isParticipating) ? const BorderSide(color: Colors.red) : null,
-                                ),
-                                child: Text(isPast ? 'Workshop Ended' : (_isParticipating ? 'Leave Workshop' : 'Join Workshop')),
-                              ),
-                            );
-                          }
-                        )
-                      ],
-                    ),
-                  ),
-                ],
-
+                // Removed workshop specific card with join button
                 const SizedBox(height: 24),
                 const Divider(),
 
