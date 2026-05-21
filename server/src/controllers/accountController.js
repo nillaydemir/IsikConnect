@@ -14,18 +14,29 @@ const deleteAccount = async (req, res) => {
     // in `mentors`, `students`, `matches`, and `messages`.
     // If not, we should manually delete them. Let's do it manually just to be safe.
 
-    // 1. Delete from messages where user is sender or receiver
+    // 1. Delete from messages where user is sender or receiver (just in case no cascade)
     await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
 
-    // 2. Delete matches where user is student or mentor
+    // 2. Delete matches where user is student or mentor (just in case no cascade)
     await supabase.from('matches').delete().or(`student_id.eq.${userId},mentor_id.eq.${userId}`);
 
-    // 3. Delete from mentors or students table
-    await supabase.from('mentors').delete().eq('user_id', userId);
-    await supabase.from('students').delete().eq('user_id', userId);
+    // 2.5 Fix Foreign Key Constraint for students table
+    // If the user being deleted is a mentor, any student matched with them must have matched_mentor_id set to null.
+    await supabase.from('students').update({ matched_mentor_id: null }).eq('matched_mentor_id', userId);
+
+    // 3. Delete from mentors or students table (correct column is 'id')
+    await supabase.from('mentors').delete().eq('id', userId);
+    await supabase.from('students').delete().eq('id', userId);
 
     // 4. Delete the user from the users table
     const { error: userError } = await supabase.from('users').delete().eq('id', userId);
+    
+    // 5. Try to delete from Supabase Auth as well (if using Service Role Key)
+    try {
+        await supabase.auth.admin.deleteUser(userId);
+    } catch (e) {
+        console.warn('Could not delete auth user:', e.message);
+    }
 
     if (userError) throw userError;
 

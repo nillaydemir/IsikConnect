@@ -169,6 +169,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                   size: 20,
                                 ),
                               ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProfilePage(targetUser: user),
+                                  ),
+                                );
+                              },
                             ),
                           );
                         },
