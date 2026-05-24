@@ -103,10 +103,12 @@ class _PostCardState extends State<PostCard> {
                       CircleAvatar(
                         radius: 16,
                         backgroundColor: primaryColor.withValues(alpha: 0.1),
-                        backgroundImage: widget.post.authorProfileImageUrl != null ? NetworkImage(widget.post.authorProfileImageUrl!) : null,
-                        child: widget.post.authorProfileImageUrl == null 
+                        backgroundImage: (widget.post.isAuthorDeleted || widget.post.authorProfileImageUrl == null) 
+                          ? null 
+                          : NetworkImage(widget.post.authorProfileImageUrl!),
+                        child: (widget.post.isAuthorDeleted || widget.post.authorProfileImageUrl == null) 
                           ? Text(
-                              widget.post.authorName.substring(0, 1).toUpperCase(),
+                              widget.post.isAuthorDeleted ? '?' : widget.post.authorName.substring(0, 1).toUpperCase(),
                               style: const TextStyle(color: primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
                             )
                           : null,
@@ -117,8 +119,36 @@ class _PostCardState extends State<PostCard> {
                         children: [
                           Row(
                             children: [
-                              Text(widget.post.authorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              if (widget.post.authorRole == 'mentor') ...[
+                              Text(
+                                widget.post.isAuthorDeleted 
+                                  ? 'Cancelled Account' 
+                                  : widget.post.authorName, 
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600, 
+                                  fontSize: 14,
+                                  color: widget.post.isAuthorDeleted ? Colors.grey.shade500 : Colors.black,
+                                  fontStyle: widget.post.isAuthorDeleted ? FontStyle.italic : FontStyle.normal,
+                                )
+                              ),
+                              if (widget.post.isAuthorDeleted) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.red.shade200, width: 0.5),
+                                  ),
+                                  child: Text(
+                                    'Kapanan Hesap',
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ] else if (widget.post.authorRole == 'mentor') ...[
                                 const SizedBox(width: 4),
                                 const Icon(Icons.verified, color: Colors.blue, size: 14),
                               ]

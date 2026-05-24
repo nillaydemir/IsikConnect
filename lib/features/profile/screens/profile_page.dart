@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
@@ -37,6 +39,9 @@ class _ProfilePageState extends State<ProfilePage> {
   List<String> _selectedInterests = [];
   final TextEditingController _customInterestController = TextEditingController();
   Map<String, List<String>> _departmentInterests = {};
+  int _maxStudents = 1;
+  PlatformFile? _selectedNewImage;
+  bool _shouldDeleteImage = false;
 
   final List<String> _allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -177,64 +182,60 @@ class _ProfilePageState extends State<ProfilePage> {
     _jobTitleController.text = _user.jobTitle ?? '';
     _selectedDays = List<String>.from(_user.availableDays ?? []);
     _selectedInterests = List<String>.from(_user.interests ?? []);
+    _maxStudents = _user.maxStudents ?? 1;
+    _selectedNewImage = null;
+    _shouldDeleteImage = false;
   }
 
-  Future<void> _pickAndUploadImage() async {
+  Future<void> _pickImage() async {
     FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.image,
     );
 
     if (result != null) {
-      setState(() => _isLoading = true);
-      try {
-        final apiService = ApiService();
-        final response = await apiService.uploadProfileImage(_user.id, result.files.first);
-        
-        if (response['profileImageUrl'] != null) {
-          setState(() {
-            final updatedUser = AppUser(
-              id: _user.id,
-              email: _user.email,
-              role: _user.role,
-              createdAt: _user.createdAt,
-              isApproved: _user.isApproved,
-              name: _user.name,
-              phone: _user.phone,
-              department: _user.department,
-              bio: _user.bio,
-              profileImageUrl: response['profileImageUrl'],
-              interests: _user.interests,
-              availableDays: _user.availableDays,
-              classLevel: _user.classLevel,
-              graduationYear: _user.graduationYear,
-              company: _user.company,
-              jobTitle: _user.jobTitle,
-              maxStudents: _user.maxStudents,
-            );
-            _user = updatedUser;
-            CurrentSession().user = updatedUser;
-          });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile picture updated!'), backgroundColor: Colors.green),
-            );
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error uploading image: $e'), backgroundColor: Colors.red),
-          );
-        }
-      } finally {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _selectedNewImage = result.files.first;
+      });
     }
   }
 
   Future<void> _saveProfile() async {
+    final phoneText = _phoneController.text.trim();
+    if (phoneText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Phone number cannot be empty.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    final phoneRegex = RegExp(r'^[1-9]\d{9}$');
+    if (!phoneRegex.hasMatch(phoneText)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid 10-digit phone number.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
+      if (_shouldDeleteImage) {
+        await Supabase.instance.client.from('users').update({
+          'profile_image_url': null,
+        }).eq('id', _user.id);
+        _shouldDeleteImage = false;
+      }
+      if (_selectedNewImage != null) {
+        final apiService = ApiService();
+        final uploadResponse = await apiService.uploadProfileImage(_user.id, _selectedNewImage!);
+        if (uploadResponse['profileImageUrl'] != null) {
+          _selectedNewImage = null;
+        }
+      }
       final names = _nameController.text.trim().split(' ');
       final firstName = names.isNotEmpty ? names[0] : '';
       final lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
@@ -255,6 +256,7 @@ class _ProfilePageState extends State<ProfilePage> {
           'job_title': _jobTitleController.text.trim(),
           'available_days': _selectedDays,
           'interests': _selectedInterests,
+          'max_students': _maxStudents,
         }).eq('id', _user.id);
       } else if (_user.role == 'student') {
         await Supabase.instance.client.from('students').update({
@@ -513,10 +515,16 @@ class _ProfilePageState extends State<ProfilePage> {
               child: CircleAvatar(
                 radius: 64,
                 backgroundColor: primaryColor.withValues(alpha: 0.1),
-                backgroundImage: _user.profileImageUrl != null 
-                    ? NetworkImage(_user.profileImageUrl!) 
-                    : null,
-                child: _user.profileImageUrl == null 
+                backgroundImage: (_selectedNewImage == null && _shouldDeleteImage)
+                    ? null
+                    : (_selectedNewImage != null
+                        ? (_selectedNewImage!.path != null
+                            ? FileImage(File(_selectedNewImage!.path!))
+                            : MemoryImage(_selectedNewImage!.bytes!) as ImageProvider)
+                        : (_user.profileImageUrl != null 
+                            ? NetworkImage(_user.profileImageUrl!) 
+                            : null)),
+                child: (_selectedNewImage == null && (_shouldDeleteImage || _user.profileImageUrl == null))
                     ? Text(
                         (_user.name ?? 'U').substring(0, 1).toUpperCase(),
                         style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: primaryColor),
@@ -529,7 +537,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 bottom: 0,
                 right: 0,
                 child: GestureDetector(
-                  onTap: _pickAndUploadImage,
+                  onTap: _showImageOptions,
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -599,13 +607,23 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: Icons.phone_outlined,
             isEditable: _isEditing,
             keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
+          ),
+          const Divider(height: 32),
+          _buildReadOnlyField(
+            label: 'Email Address',
+            value: _user.email,
+            icon: Icons.email_outlined,
           ),
           const Divider(height: 32),
           _buildField(
             label: 'Department',
             controller: _departmentController,
             icon: Icons.school_outlined,
-            isEditable: _isEditing,
+            isEditable: false,
           ),
           const Divider(height: 32),
           _buildField(
@@ -637,11 +655,17 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: Icons.school,
             ),
             const Divider(height: 32),
-            _buildReadOnlyField(
-              label: 'Max Students',
-              value: _user.maxStudents?.toString() ?? 'Not specified',
-              icon: Icons.group,
-            ),
+            _isEditing
+                ? _buildCounter(
+                    label: 'Max Students',
+                    value: _maxStudents,
+                    onChanged: (val) => setState(() => _maxStudents = val),
+                  )
+                : _buildReadOnlyField(
+                    label: 'Max Students',
+                    value: _maxStudents.toString(),
+                    icon: Icons.group,
+                  ),
           ] else if (_user.role == 'student') ...[
             const Divider(height: 32),
             _buildReadOnlyField(
@@ -858,6 +882,7 @@ class _ProfilePageState extends State<ProfilePage> {
     required bool isEditable,
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -878,6 +903,7 @@ class _ProfilePageState extends State<ProfilePage> {
             controller: controller,
             maxLines: maxLines,
             keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -928,6 +954,121 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCounter({
+    required String label,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: value > 1 ? () => onChanged(value - 1) : null,
+                icon: const Icon(Icons.remove_circle_outline),
+                color: value > 1 ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey,
+              ),
+              Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              IconButton(
+                onPressed: () => onChanged(value + 1),
+                icon: const Icon(Icons.add_circle_outline),
+                color: const Color.fromARGB(255, 38, 55, 140),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showImageOptions() {
+    const primaryColor = Color.fromARGB(255, 38, 55, 140);
+    final hasPhoto = _selectedNewImage != null || (_user.profileImageUrl != null && !_shouldDeleteImage);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Profile Photo',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0A1930),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: primaryColor),
+                title: const Text('Choose Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage();
+                },
+              ),
+              if (hasPhoto)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  title: const Text('Delete Photo', style: TextStyle(color: Colors.redAccent)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _selectedNewImage = null;
+                      _shouldDeleteImage = true;
+                    });
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 }

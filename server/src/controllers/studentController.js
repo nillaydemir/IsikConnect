@@ -174,6 +174,10 @@ const loginStudent = async (req, res) => {
       return res.status(401).json({ message: 'Student profile not found. Please contact admin.' });
     }
 
+    if (user.is_deleted === true) {
+      return res.status(401).json({ message: 'Your account has been deleted.' });
+    }
+
     const { data: studentData, error: studentError } = await supabase
       .from('students')
       .select('status')

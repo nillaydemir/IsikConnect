@@ -87,7 +87,7 @@ class MeetingsScreenState extends State<MeetingsScreen> {
                     ),
                   );
                   if (result == true) {
-                    setState(() {}); // Refresh future builder
+                    fetchMeetings();
                   }
                 },
               ),
@@ -236,11 +236,26 @@ class _MeetingListState extends State<_MeetingList> {
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
 
-    if (widget.meetings.isEmpty) {
-      return const Center(child: Text('No meetings here.'));
-    }
-
-    return ListView.builder(
+    return RefreshIndicator(
+      onRefresh: () async {
+        widget.onRefresh();
+      },
+      color: primaryColor,
+      child: widget.meetings.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 150),
+                Center(
+                  child: Text(
+                    'No meetings here.',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                ),
+              ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: widget.meetings.length,
       itemBuilder: (context, index) {
@@ -691,6 +706,7 @@ class _MeetingListState extends State<_MeetingList> {
           ),
         );
       },
-    );
+    ),
+  );
   }
 }

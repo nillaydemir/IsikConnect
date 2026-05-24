@@ -171,4 +171,30 @@ class MeetingService {
         .update({'meeting_date': meetingDate.toUtc().toIso8601String()})
         .match({'id': meetingId, 'mentor_id': user.id});
   }
+
+  Future<Map<String, dynamic>?> getMeetingDetails(String meetingId) async {
+    final user = CurrentSession().user;
+    if (user == null) return null;
+
+    try {
+      final response = await _supabase
+          .from('meetings')
+          .select('*, mentor:mentor_id(first_name, last_name)')
+          .eq('id', meetingId)
+          .single();
+
+      final registrations = await _supabase
+          .from('workshop_participants')
+          .select('meeting_id')
+          .eq('meeting_id', meetingId)
+          .eq('student_id', user.id);
+
+      final Map<String, dynamic> meetingMap = Map<String, dynamic>.from(response);
+      meetingMap['is_registered'] = registrations.isNotEmpty;
+      return meetingMap;
+    } catch (e) {
+      debugPrint('Error getting meeting details: $e');
+      return null;
+    }
+  }
 }

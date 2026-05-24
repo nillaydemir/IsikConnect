@@ -26,7 +26,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     try {
       final ticketsResponse = await _supabase
           .from('support_tickets')
-          .select('*, users(first_name, last_name, email, id)')
+          .select('*, users(first_name, last_name, email, id, is_deleted)')
           .order('created_at', ascending: false);
 
       final reviewsResponse = await _supabase
@@ -207,6 +207,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         itemBuilder: (context, index) {
           final ticket = _supportTickets[index];
           final userData = ticket['users'];
+          final isUserDeleted = userData != null && userData['is_deleted'] == true;
           final userName = userData != null
               ? '${userData['first_name']} ${userData['last_name']}'
               : 'Unknown';
@@ -259,9 +260,38 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                     ),
                 ],
               ),
-              subtitle: Text(
-                'From: $userName · ${date.day}/${date.month}/${date.year}',
-                style: const TextStyle(fontSize: 12),
+              subtitle: Row(
+                children: [
+                  Text(
+                    isUserDeleted 
+                        ? 'From: Cancelled Account · ${date.day}/${date.month}/${date.year}'
+                        : 'From: $userName · ${date.day}/${date.month}/${date.year}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isUserDeleted ? Colors.grey.shade500 : Colors.black87,
+                      fontStyle: isUserDeleted ? FontStyle.italic : FontStyle.normal,
+                    ),
+                  ),
+                  if (isUserDeleted) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.red.shade200, width: 0.5),
+                      ),
+                      child: Text(
+                        'Kapanan Hesap',
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               children: [
                 Padding(
@@ -320,7 +350,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                             style: TextButton.styleFrom(
                               foregroundColor: const Color.fromARGB(255, 38, 55, 140),
                             ),
-                            onPressed: targetUserId == null
+                            onPressed: (targetUserId == null || isUserDeleted)
                                 ? null
                                 : () => _showMessageUserDialog(targetUserId, userName),
                           ),

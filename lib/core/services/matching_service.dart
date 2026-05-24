@@ -55,13 +55,24 @@ class MatchingService {
     final periodStart = _getCurrentPeriodStart();
     final allCancelledMatches = await _supabase
         .from('matches')
-        .select('mentor_id')
+        .select('mentor_id, students(users(is_deleted))')
         .eq('status', 'cancelled')
         .gte('created_at', periodStart.toIso8601String());
 
     final Map<String, int> mentorCancellationCounts = {};
     for (var match in allCancelledMatches as List) {
       final mId = match['mentor_id'].toString();
+      
+      // If student is deleted, do not count this cancellation against the mentor
+      final studentsData = match['students'];
+      if (studentsData != null) {
+        final usersData = studentsData['users'];
+        if (usersData != null && usersData['is_deleted'] == true) {
+          debugPrint('Skipping cancelled match for mentor $mId in limit calculation because the student deleted their account.');
+          continue;
+        }
+      }
+      
       mentorCancellationCounts[mId] = (mentorCancellationCounts[mId] ?? 0) + 1;
     }
 
@@ -210,11 +221,24 @@ class MatchingService {
     final periodStart = _getCurrentPeriodStart();
     final response = await _supabase
         .from('matches')
-        .select('id')
+        .select('id, mentors(users(is_deleted))')
         .eq('student_id', studentId)
         .eq('status', 'cancelled')
         .gte('created_at', periodStart.toIso8601String());
-    return (response as List).length;
+        
+    int count = 0;
+    for (var match in response as List) {
+      final mentorsData = match['mentors'];
+      if (mentorsData != null) {
+        final usersData = mentorsData['users'];
+        if (usersData != null && usersData['is_deleted'] == true) {
+          debugPrint('Ignoring cancelled match in student $studentId rights count because the mentor deleted their account.');
+          continue;
+        }
+      }
+      count++;
+    }
+    return count;
   }
 
   /// Returns the number of cancelled matches for a mentor in the current academic year
@@ -222,11 +246,24 @@ class MatchingService {
     final periodStart = _getCurrentPeriodStart();
     final response = await _supabase
         .from('matches')
-        .select('id')
+        .select('id, students(users(is_deleted))')
         .eq('mentor_id', mentorId)
         .eq('status', 'cancelled')
         .gte('created_at', periodStart.toIso8601String());
-    return (response as List).length;
+        
+    int count = 0;
+    for (var match in response as List) {
+      final studentsData = match['students'];
+      if (studentsData != null) {
+        final usersData = studentsData['users'];
+        if (usersData != null && usersData['is_deleted'] == true) {
+          debugPrint('Ignoring cancelled match in mentor $mentorId rights count because the student deleted their account.');
+          continue;
+        }
+      }
+      count++;
+    }
+    return count;
   }
 
   /// THE BLACK BOX ALGORITHM (DO NOT MODIFY LOGIC)

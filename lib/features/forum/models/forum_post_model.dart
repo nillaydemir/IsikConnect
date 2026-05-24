@@ -19,6 +19,7 @@ class ForumPost {
   final String authorName;
   final String authorRole;
   final String? authorProfileImageUrl;
+  final bool isAuthorDeleted;
   int likeCount;
   int commentCount;
   int participantCount;
@@ -43,6 +44,7 @@ class ForumPost {
     required this.authorName,
     required this.authorRole,
     this.authorProfileImageUrl,
+    this.isAuthorDeleted = false,
     this.likeCount = 0,
     this.commentCount = 0,
     this.participantCount = 0,
@@ -59,6 +61,7 @@ class ForumPost {
     final String name = '$fName $lName'.trim();
     final String role = users?['role'] ?? 'student';
     final String? profileImage = users?['profile_image_url'];
+    final bool isDeleted = users?['is_deleted'] == true;
 
     // Handle counts and relations
     final likesList = (json['forum_likes'] as List?) ?? [];
@@ -87,6 +90,7 @@ class ForumPost {
       authorName: name,
       authorRole: role,
       authorProfileImageUrl: profileImage,
+      isAuthorDeleted: isDeleted,
       likeCount: likesList.length,
       commentCount: commentsList.length,
       participantCount: participantsList.length,

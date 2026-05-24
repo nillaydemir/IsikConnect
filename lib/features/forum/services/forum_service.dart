@@ -157,7 +157,7 @@ class ForumService {
         .from('forum_posts')
         .select('''
           *,
-          users!author_id(first_name, last_name, role, profile_image_url),
+          users!author_id(first_name, last_name, role, profile_image_url, is_deleted),
           forum_likes(user_id),
           forum_comments(id),
           forum_bookmarks(user_id),
@@ -177,7 +177,7 @@ class ForumService {
   Future<List<ForumComment>> fetchComments(String postId) async {
     final response = await _supabase
         .from('forum_comments')
-        .select('*, users!author_id(first_name, last_name, role, profile_image_url)')
+        .select('*, users!author_id(first_name, last_name, role, profile_image_url, is_deleted)')
         .eq('post_id', postId)
         .order('created_at', ascending: true);
 
@@ -279,5 +279,38 @@ class ForumService {
         .from('forum_comments')
         .update({'is_accepted': true})
         .eq('id', commentId);
+  }
+
+  // --- Delete Post ---
+  Future<void> deletePost(String postId) async {
+    await _supabase
+        .from('forum_posts')
+        .delete()
+        .eq('id', postId)
+        .eq('author_id', _currentUserId);
+  }
+
+  // --- Update Post ---
+  Future<void> updatePost({
+    required String postId,
+    required String category,
+    required String title,
+    required String content,
+    String? imageUrl,
+    String? meetingLink,
+    DateTime? eventDate,
+  }) async {
+    await _supabase
+        .from('forum_posts')
+        .update({
+          'category': category,
+          'title': title,
+          'content': content,
+          'image_url': imageUrl,
+          'meeting_link': meetingLink,
+          'event_date': eventDate?.toIso8601String(),
+        })
+        .eq('id', postId)
+        .eq('author_id', _currentUserId);
   }
 }
