@@ -69,7 +69,7 @@ class MeetingsScreenState extends State<MeetingsScreen> {
             unselectedLabelColor: Colors.grey,
             indicatorColor: primaryColor,
             labelStyle: TextStyle(fontWeight: FontWeight.bold),
-            tabs: const [
+            tabs: [
               Tab(text: 'Workshops'),
               Tab(text: '1-on-1'),
               Tab(text: 'Past'),
@@ -624,7 +624,7 @@ class _MeetingListState extends State<_MeetingList> {
                                     const Icon(Icons.lock_clock, size: 18),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'Opens at ${meetingDate!.subtract(const Duration(minutes: 10)).hour.toString().padLeft(2, '0')}:${meetingDate.subtract(const Duration(minutes: 10)).minute.toString().padLeft(2, '0')}',
+                                      'Opens at ${meetingDate.subtract(const Duration(minutes: 10)).hour.toString().padLeft(2, '0')}:${meetingDate.subtract(const Duration(minutes: 10)).minute.toString().padLeft(2, '0')}',
                                       style: const TextStyle(fontWeight: FontWeight.bold),
                                     ),
                                   ],

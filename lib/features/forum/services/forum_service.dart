@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter/foundation.dart';
 import '../models/forum_post_model.dart';
 import '../models/forum_comment_model.dart';
 import '../../../core/services/current_session.dart';
