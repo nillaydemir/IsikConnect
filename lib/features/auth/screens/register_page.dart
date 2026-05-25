@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/services/api_service.dart';
 
@@ -62,8 +62,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _selectedGradYear;
   final TextEditingController _companyController = TextEditingController();
   final TextEditingController _jobTitleController = TextEditingController();
-  final List<String> _maxStudentsList = ['1', '2', '3', '5', '10'];
-  String? _selectedMaxStudents;
+  int _selectedMaxStudents = 1;
   final TextEditingController _customInterestController =
       TextEditingController();
 
@@ -132,6 +131,24 @@ class _RegisterPageState extends State<RegisterPage> {
         );
         return;
       }
+      final phoneText = _phoneController.text.trim();
+      if (phoneText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter your phone number.'),
+          ),
+        );
+        return;
+      }
+      final phoneRegex = RegExp(r'^[1-9]\d{9}$');
+      if (!phoneRegex.hasMatch(phoneText)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid 10-digit phone number.'),
+          ),
+        );
+        return;
+      }
     } else if (_currentStep == 1) {
       if (_selectedRole == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -163,10 +180,6 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      print('--- Registering Button Pressed ---');
-      print('File Name: $_selectedFileName');
-      print('File Path: $_selectedFilePath');
-      print('PlatformFile present: ${_selectedPlatformFile != null}');
 
       final email = _emailController.text.trim();
       final rawPassword = _passwordController.text.trim();
@@ -192,7 +205,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'graduation_year': _selectedGradYear,
           'company': _companyController.text.trim(),
           'job_title': _jobTitleController.text.trim(),
-          'max_students': int.tryParse(_selectedMaxStudents ?? '1'),
+          'max_students': _selectedMaxStudents,
           'interests': _selectedInterests,
         };
 
@@ -211,7 +224,7 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           );
           Future.delayed(const Duration(seconds: 1), () {
-            Navigator.pop(context);
+            if (mounted) Navigator.pop(context);
           });
         } else {
           throw result['message'] ?? 'Registration failed.';
@@ -249,7 +262,7 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           );
           Future.delayed(const Duration(seconds: 1), () {
-            Navigator.pop(context);
+            if (mounted) Navigator.pop(context);
           });
         } else {
           throw result['message'] ?? 'Student registration failed.';
@@ -454,10 +467,14 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 16),
         _buildTextField(
-          'Phone Number',
+          'Phone Number *',
           _phoneController,
           Icons.phone_outlined,
           keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
+          ],
         ),
         const SizedBox(height: 24),
         const Text(
@@ -488,7 +505,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 38,
                 55,
                 140,
-              ).withOpacity(0.15),
+              ).withValues(alpha: 0.15),
               checkmarkColor: const Color.fromARGB(255, 38, 55, 140),
               labelStyle: TextStyle(
                 color: isSelected
@@ -542,7 +559,7 @@ class _RegisterPageState extends State<RegisterPage> {
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color.fromARGB(255, 38, 55, 140).withOpacity(0.05)
+              ? const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.05)
               : Colors.white,
           border: Border.all(
             color: isSelected
@@ -750,11 +767,10 @@ class _RegisterPageState extends State<RegisterPage> {
           const SizedBox(height: 16),
           _buildTextField('Job Title', _jobTitleController, Icons.work_outline),
           const SizedBox(height: 16),
-          _buildDropdown(
-            'Max Number of Students',
-            _maxStudentsList,
-            _selectedMaxStudents,
-            (val) => setState(() => _selectedMaxStudents = val),
+          _buildCounter(
+            label: 'Max Number of Students',
+            value: _selectedMaxStudents,
+            onChanged: (val) => setState(() => _selectedMaxStudents = val),
           ),
           const SizedBox(height: 24),
           _buildDynamicInterestsSection('Mentorship Areas'),
@@ -772,7 +788,7 @@ class _RegisterPageState extends State<RegisterPage> {
         filled: true,
         fillColor: Colors.white,
       ),
-      value: _selectedDepartment,
+      initialValue: _selectedDepartment,
       isExpanded: true,
       items: _departmentInterests.keys.map((String dept) {
         return DropdownMenuItem<String>(
@@ -806,7 +822,7 @@ class _RegisterPageState extends State<RegisterPage> {
         filled: true,
         fillColor: Colors.white,
       ),
-      value: currentValue,
+      initialValue: currentValue,
       isExpanded: true,
       items: options.map((String opt) {
         return DropdownMenuItem<String>(value: opt, child: Text(opt));
@@ -821,11 +837,13 @@ class _RegisterPageState extends State<RegisterPage> {
     IconData icon, {
     bool obscureText = false,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
@@ -901,7 +919,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 38,
                 55,
                 140,
-              ).withOpacity(0.15),
+              ).withValues(alpha: 0.15),
               checkmarkColor: const Color.fromARGB(255, 38, 55, 140),
               labelStyle: TextStyle(
                 color: isSelected
@@ -986,6 +1004,58 @@ class _RegisterPageState extends State<RegisterPage> {
               child: const Text('Add'),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCounter({
+    required String label,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: value > 1 ? () => onChanged(value - 1) : null,
+                icon: const Icon(Icons.remove_circle_outline),
+                color: value > 1 ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey,
+              ),
+              Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              IconButton(
+                onPressed: () => onChanged(value + 1),
+                icon: const Icon(Icons.add_circle_outline),
+                color: const Color.fromARGB(255, 38, 55, 140),
+              ),
+            ],
+          ),
         ),
       ],
     );

@@ -187,6 +187,10 @@ const loginMentor = async (req, res) => {
       return res.status(401).json({ message: 'Mentor profile not found. Please contact admin.' });
     }
 
+    if (user.is_deleted === true) {
+      return res.status(401).json({ message: 'Your account has been deleted.' });
+    }
+
     // 3. Check status in "mentors" table
     const { data: mentor, error: mentorError } = await supabase
       .from('mentors')

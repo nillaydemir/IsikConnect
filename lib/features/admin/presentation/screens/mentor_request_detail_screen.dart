@@ -8,9 +8,9 @@ class MentorRequestDetailScreen extends StatelessWidget {
   final MentorApplicationModel application;
 
   const MentorRequestDetailScreen({
-    Key? key,
+    super.key,
     required this.application,
-  }) : super(key: key);
+  });
 
   void _showConfirmationDialog(BuildContext context, bool isApprove) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
@@ -149,7 +149,7 @@ class MentorRequestDetailScreen extends StatelessWidget {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -195,7 +195,7 @@ class MentorRequestDetailScreen extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 50,
-          backgroundColor: primaryColor.withOpacity(0.1),
+          backgroundColor: primaryColor.withValues(alpha: 0.1),
           backgroundImage: application.avatarUrl != null 
               ? NetworkImage(application.avatarUrl!) 
               : null,

@@ -10,8 +10,8 @@ class CreateMeetingScreen extends StatefulWidget {
 
 class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   final _titleController = TextEditingController();
-  final _capacityController = TextEditingController();
   final _meetingService = MeetingService();
+  int _capacity = 10;
   
   String _selectedType = '1-on-1';
   DateTime? _selectedDate;
@@ -66,9 +66,25 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
     setState(() => _isCreating = true);
 
     try {
+      final selectedDateTime = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
+
+      if (selectedDateTime.isBefore(DateTime.now())) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cannot create a meeting in the past')),
+        );
+        setState(() => _isCreating = false);
+        return;
+      }
+
       int? capacity;
       if (_selectedType == 'Workshop') {
-        capacity = int.tryParse(_capacityController.text) ?? 10;
+        capacity = _capacity;
       }
 
       await _meetingService.createMeeting(
@@ -280,11 +296,12 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
             ),
             const SizedBox(height: 20),
             
-            // Capacity (If workshop)
             if (_selectedType == 'Workshop') ...[
-              _buildLabel('Capacity'),
-              const SizedBox(height: 8),
-              _buildTextField(_capacityController, 'Number of attendees', keyboardType: TextInputType.number),
+              _buildCounter(
+                label: 'Capacity',
+                value: _capacity,
+                onChanged: (val) => setState(() => _capacity = val),
+              ),
               const SizedBox(height: 20),
             ],
             
@@ -337,6 +354,58 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
           borderSide: const BorderSide(color: Color.fromARGB(255, 38, 55, 140)),
         ),
       ),
+    );
+  }
+
+  Widget _buildCounter({
+    required String label,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: value > 1 ? () => onChanged(value - 1) : null,
+                icon: const Icon(Icons.remove_circle_outline),
+                color: value > 1 ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey,
+              ),
+              Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              IconButton(
+                onPressed: () => onChanged(value + 1),
+                icon: const Icon(Icons.add_circle_outline),
+                color: const Color.fromARGB(255, 38, 55, 140),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

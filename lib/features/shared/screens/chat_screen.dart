@@ -133,16 +133,33 @@ class _ChatScreenState extends State<ChatScreen> {
                 'and(sender_id.eq.$myId,receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.$myId)',
               )
               .order('created_at', ascending: false)
-              .limit(1)
-              .maybeSingle();
+              .limit(10);
+
+          Map<String, dynamic>? lastMsgDoc;
+          if (msgResponse.isNotEmpty) {
+            for (var msg in msgResponse) {
+              final isSender = msg['sender_id'] == myId;
+              if (isSender) {
+                if (msg['deleted_by_sender'] != true) {
+                  lastMsgDoc = Map<String, dynamic>.from(msg);
+                  break;
+                }
+              } else {
+                if (msg['deleted_by_receiver'] != true) {
+                  lastMsgDoc = Map<String, dynamic>.from(msg);
+                  break;
+                }
+              }
+            }
+          }
 
           String? lastMsg;
           DateTime? lastMsgTime;
           int unreadCount = 0;
 
-          if (msgResponse != null) {
-            lastMsg = msgResponse['content'];
-            lastMsgTime = DateTime.parse(msgResponse['created_at']).toLocal();
+          if (lastMsgDoc != null) {
+            lastMsg = lastMsgDoc['content'];
+            lastMsgTime = DateTime.parse(lastMsgDoc['created_at']).toLocal();
             try {
               final unreadResponse = await _supabase
                   .from('messages')
@@ -403,27 +420,77 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   late final Stream<List<Map<String, dynamic>>> _messagesStream;
   late final String _myId;
 
+  StreamSubscription? _matchSubscription;
+  StreamSubscription? _userSubscription;
+  bool _isMatchActive = true;
+  bool _isTargetUserDeleted = false;
+
   @override
   void initState() {
     super.initState();
     _myId = CurrentSession().user!.id;
+    _isMatchActive = widget.isActiveMatch;
 
-    // Listen to messages table
     _messagesStream = _supabase
         .from('messages')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: true)
         .map((events) {
-          // Filter client-side for our conversation
+          // Filter client-side for our conversation and soft-deleted status
           return events.where((msg) {
             final sender = msg['sender_id'];
             final receiver = msg['receiver_id'];
-            return (sender == _myId && receiver == widget.targetUser.id) ||
-                (sender == widget.targetUser.id && receiver == _myId);
+            
+            if (sender == _myId && receiver == widget.targetUser.id) {
+              return msg['deleted_by_sender'] != true;
+            }
+            if (receiver == _myId && sender == widget.targetUser.id) {
+              return msg['deleted_by_receiver'] != true;
+            }
+            return false;
           }).toList();
         });
 
     _markMessagesAsRead();
+    _initSubscriptions();
+  }
+
+  void _initSubscriptions() {
+    _matchSubscription = _supabase
+        .from('matches')
+        .stream(primaryKey: ['id'])
+        .listen((data) {
+          bool activeFound = false;
+          for (var match in data) {
+            final sId = match['student_id'];
+            final mId = match['mentor_id'];
+            if (((sId == _myId && mId == widget.targetUser.id) || (sId == widget.targetUser.id && mId == _myId)) &&
+                match['status'] == 'active') {
+              activeFound = true;
+              break;
+            }
+          }
+          if (mounted) {
+            setState(() {
+              _isMatchActive = activeFound;
+            });
+          }
+        });
+
+    _userSubscription = _supabase
+        .from('users')
+        .stream(primaryKey: ['id'])
+        .eq('id', widget.targetUser.id)
+        .listen((data) {
+          if (data.isNotEmpty) {
+            final isDeleted = data.first['is_deleted'] == true;
+            if (mounted) {
+              setState(() {
+                _isTargetUserDeleted = isDeleted;
+              });
+            }
+          }
+        });
   }
 
   Future<void> _markMessagesAsRead() async {
@@ -445,6 +512,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _matchSubscription?.cancel();
+    _userSubscription?.cancel();
     super.dispose();
   }
 
@@ -552,12 +621,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Future<void> _deleteChat() async {
     try {
+      // 1. Soft-delete messages sent by me
       await _supabase
           .from('messages')
-          .delete()
-          .or(
-            'and(sender_id.eq.$_myId,receiver_id.eq.${widget.targetUser.id}),and(sender_id.eq.${widget.targetUser.id},receiver_id.eq.$_myId)',
-          );
+          .update({'deleted_by_sender': true})
+          .eq('sender_id', _myId)
+          .eq('receiver_id', widget.targetUser.id);
+
+      // 2. Soft-delete messages received by me
+      await _supabase
+          .from('messages')
+          .update({'deleted_by_receiver': true})
+          .eq('sender_id', widget.targetUser.id)
+          .eq('receiver_id', _myId);
 
       if (mounted) {
         Navigator.pop(context);
@@ -620,6 +696,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _sendMessage() async {
+    if (!_isMatchActive || _isTargetUserDeleted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Eşleşme sonlandırıldığı veya kullanıcı silindiği için mesaj gönderemezsiniz.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
@@ -723,7 +810,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               }
             },
             itemBuilder: (BuildContext context) => [
-              if (widget.isActiveMatch)
+              if (_isMatchActive && !_isTargetUserDeleted)
                 const PopupMenuItem(
                   value: 'end_mentorship',
                   child: Text(
@@ -792,7 +879,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
 
           // Chat Input or Disabled Message
-          if (widget.isActiveMatch)
+          if (_isMatchActive && !_isTargetUserDeleted)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -853,7 +940,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 child: Text(
                   isAdminChat
                       ? 'Bu destek mesajıdır. Yanıt veremezsiniz.'
-                      : 'Bu eşleşme sonlandırıldı. Artık mesaj gönderemezsiniz.',
+                      : _isTargetUserDeleted
+                          ? 'Bu kullanıcı hesabını sildi. Artık mesaj gönderemezsiniz.'
+                          : 'Bu eşleşme sonlandırıldı. Artık mesaj gönderemezsiniz.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.black54,

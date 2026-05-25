@@ -54,3 +54,7 @@ server/.env
 
 # Android
 android/build/
+
+# Claude
+.claude/
+

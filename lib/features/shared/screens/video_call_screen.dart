@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/agora_constants.dart';
 
 class VideoCallScreen extends StatefulWidget {
@@ -13,10 +14,12 @@ class VideoCallScreen extends StatefulWidget {
 }
 
 class _VideoCallScreenState extends State<VideoCallScreen> {
-  int? _remoteUid;
+  final List<int> _remoteUids = [];
   bool _localUserJoined = false;
   bool _muted = false;
   bool _videoDisabled = false;
+  bool _isReconnecting = false;
+  bool _isDisconnected = false;
   late RtcEngine _engine;
 
   @override
@@ -25,15 +28,29 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     initAgora();
   }
 
+  Future<String> _fetchToken() async {
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'generate-agora-token',
+        body: {'channelName': widget.channelName, 'uid': 0},
+      );
+      final token = response.data['token'] as String?;
+      if (token == null) throw Exception('Token not returned from server');
+      return token;
+    } catch (e) {
+      return AgoraConstants.tempToken;
+    }
+  }
+
   Future<void> initAgora() async {
-    // retrieve permissions
     try {
       await [Permission.microphone, Permission.camera].request();
     } catch (e) {
       debugPrint("Warning: Could not request permissions: $e");
     }
 
-    //create the engine
+    final token = await _fetchToken();
+
     _engine = createAgoraRtcEngine();
     await _engine.initialize(const RtcEngineContext(
       appId: AgoraConstants.appId,
@@ -46,39 +63,75 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
           debugPrint("local user ${connection.localUid} joined");
           setState(() {
             _localUserJoined = true;
+            _isReconnecting = false;
+            _isDisconnected = false;
           });
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint("remote user $remoteUid joined");
           setState(() {
-            _remoteUid = remoteUid;
+            if (!_remoteUids.contains(remoteUid)) {
+              _remoteUids.add(remoteUid);
+            }
           });
         },
         onUserOffline: (RtcConnection connection, int remoteUid,
             UserOfflineReasonType reason) {
           debugPrint("remote user $remoteUid left channel");
           setState(() {
-            _remoteUid = null;
+            _remoteUids.remove(remoteUid);
           });
         },
-        onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
-          debugPrint('[onTokenPrivilegeWillExpire] connection: ${connection.toJson()}, token: $token');
+        onTokenPrivilegeWillExpire: (RtcConnection connection, String token) async {
+          final newToken = await _fetchToken();
+          await _engine.renewToken(newToken);
         },
         onError: (ErrorCodeType err, String msg) {
           debugPrint('[Agora Error] $err: $msg');
         },
-        onConnectionStateChanged: (RtcConnection connection, ConnectionStateType state, ConnectionChangedReasonType reason) {
+        onConnectionStateChanged: (RtcConnection connection,
+            ConnectionStateType state,
+            ConnectionChangedReasonType reason) {
           debugPrint('[ConnectionStateChanged] state: $state, reason: $reason');
+          if (state == ConnectionStateType.connectionStateReconnecting) {
+            setState(() {
+              _isReconnecting = true;
+              _isDisconnected = false;
+            });
+          } else if (state == ConnectionStateType.connectionStateFailed) {
+            setState(() {
+              _isReconnecting = false;
+              _isDisconnected = true;
+              _localUserJoined = false;
+              _remoteUids.clear();
+            });
+          } else if (state == ConnectionStateType.connectionStateConnected) {
+            setState(() {
+              _isReconnecting = false;
+              _isDisconnected = false;
+            });
+          }
         },
       ),
     );
 
     await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _engine.enableVideo();
-    await _engine.startPreview();
+    try {
+      await _engine.startPreview();
+    } catch (e) {
+      debugPrint('Camera preview failed: $e');
+      setState(() {
+        _videoDisabled = true;
+      });
+    }
 
+    await _joinChannel(token);
+  }
+
+  Future<void> _joinChannel(String token) async {
     await _engine.joinChannel(
-      token: AgoraConstants.tempToken,
+      token: token,
       channelId: widget.channelName,
       uid: 0,
       options: const ChannelMediaOptions(
@@ -89,6 +142,23 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         clientRoleType: ClientRoleType.clientRoleBroadcaster,
       ),
     );
+  }
+
+  Future<void> _rejoin() async {
+    setState(() {
+      _isDisconnected = false;
+      _isReconnecting = true;
+    });
+    try {
+      final token = await _fetchToken();
+      await _joinChannel(token);
+    } catch (e) {
+      debugPrint('Rejoin failed: $e');
+      setState(() {
+        _isReconnecting = false;
+        _isDisconnected = true;
+      });
+    }
   }
 
   @override
@@ -120,7 +190,6 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     _engine.muteLocalVideoStream(_videoDisabled);
   }
 
-  // Create UI with local view and remote view
   @override
   Widget build(BuildContext context) {
     if (AgoraConstants.appId == 'YOUR_AGORA_APP_ID') {
@@ -148,9 +217,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Center(
-            child: _remoteVideo(),
-          ),
+          Center(child: _remoteVideo()),
           Align(
             alignment: Alignment.topLeft,
             child: SafeArea(
@@ -172,7 +239,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                                 ),
                               )
                             : Icon(
-                                _videoDisabled ? Icons.videocam_off : Icons.person,
+                                _videoDisabled
+                                    ? Icons.videocam_off
+                                    : Icons.person,
                                 color: Colors.white54,
                                 size: 40,
                               ),
@@ -183,22 +252,108 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               ),
             ),
           ),
+          if (_isReconnecting || _isDisconnected) _reconnectOverlay(),
           _toolbar(),
         ],
       ),
     );
   }
 
-  // Display remote user's video
-  Widget _remoteVideo() {
-    if (_remoteUid != null) {
-      return AgoraVideoView(
-        controller: VideoViewController.remote(
-          rtcEngine: _engine,
-          canvas: VideoCanvas(uid: _remoteUid),
-          connection: RtcConnection(channelId: widget.channelName),
+  Widget _reconnectOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.75),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isReconnecting) ...[
+              const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 20),
+              const Text(
+                'Yeniden bağlanılıyor...',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Lütfen bekleyin',
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+            ] else ...[
+              const Icon(Icons.wifi_off, color: Colors.white54, size: 72),
+              const SizedBox(height: 20),
+              const Text(
+                'Bağlantı Kesildi',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'İnternet bağlantınızı kontrol edin\nve toplantıya tekrar katılın.',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: _rejoin,
+                icon: const Icon(Icons.refresh),
+                label: const Text(
+                  'Yeniden Katıl',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 38, 55, 140),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _remoteVideo() {
+    if (_remoteUids.isNotEmpty) {
+      if (_remoteUids.length == 1) {
+        return AgoraVideoView(
+          controller: VideoViewController.remote(
+            rtcEngine: _engine,
+            canvas: VideoCanvas(uid: _remoteUids.first),
+            connection: RtcConnection(channelId: widget.channelName),
+          ),
+        );
+      } else {
+        return GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 1.0,
+          ),
+          itemCount: _remoteUids.length,
+          itemBuilder: (context, index) {
+            return AgoraVideoView(
+              controller: VideoViewController.remote(
+                rtcEngine: _engine,
+                canvas: VideoCanvas(uid: _remoteUids[index]),
+                connection: RtcConnection(channelId: widget.channelName),
+              ),
+            );
+          },
+        );
+      }
     } else {
       return const Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -206,7 +361,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
           CircularProgressIndicator(color: Colors.white54),
           SizedBox(height: 20),
           Text(
-            'Waiting for other user to join...',
+            'Waiting for others to join...',
             style: TextStyle(color: Colors.white, fontSize: 16),
             textAlign: TextAlign.center,
           ),
@@ -260,7 +415,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                 color: _videoDisabled ? Colors.white : Colors.blueAccent,
                 size: 20.0,
               ),
-            )
+            ),
           ],
         ),
       ),

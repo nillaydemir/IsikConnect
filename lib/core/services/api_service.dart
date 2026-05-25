@@ -1,8 +1,8 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'current_session.dart';
 
 class ApiService {
@@ -27,10 +27,10 @@ class ApiService {
     } else {
       // Handle PlatformFile from file_picker
       final platformFile = file;
-      print('--- Upload Debug ---');
-      print('Name: ${platformFile.name}');
-      print('Path: ${platformFile.path}');
-      print('Bytes: ${platformFile.bytes?.length}');
+      debugPrint('--- Upload Debug ---');
+      debugPrint('Name: ${platformFile.name}');
+      debugPrint('Path: ${platformFile.path}');
+      debugPrint('Bytes: ${platformFile.bytes?.length}');
 
       if (!kIsWeb && platformFile.path != null) {
         // Mobile / Local path available
@@ -204,13 +204,18 @@ class ApiService {
   }
 
   Future<void> updatePassword(String newPassword) async {
-    // Supabase has a direct flutter package method to update password if the user is authenticated.
-    // So we use the flutter SDK directly instead of node.js backend.
-    final response = await Supabase.instance.client.auth.updateUser(
-      UserAttributes(password: newPassword),
+    final hashedPassword = sha256.convert(utf8.encode(newPassword)).toString();
+    final response = await http.post(
+      Uri.parse('$baseUrl/account/change-password'),
+      headers: _authHeaders,
+      body: jsonEncode({'newPassword': hashedPassword}),
     );
-    if (response.user == null) {
-      throw 'Failed to update password.';
+    if (response.statusCode != 200) {
+      Map<String, dynamic> errorBody = {};
+      try {
+        errorBody = jsonDecode(response.body);
+      } catch (_) {}
+      throw errorBody['error'] ?? 'Failed to update password.';
     }
   }
 

@@ -85,19 +85,116 @@ class MeetingService {
     final user = CurrentSession().user;
     if (user == null) throw Exception('User not logged in');
 
+    // 1. Fetch meeting capacity
+    final meetingResponse = await _supabase
+        .from('meetings')
+        .select('capacity')
+        .eq('id', meetingId)
+        .single();
+    
+    final int? capacity = meetingResponse['capacity'];
+
+    // 2. Fetch current participant count and check duplicate
+    final existingResponse = await _supabase
+        .from('workshop_participants')
+        .select('meeting_id')
+        .eq('meeting_id', meetingId)
+        .eq('student_id', user.id);
+        
+    if (existingResponse.isNotEmpty) {
+      throw Exception('You are already registered for this workshop.');
+    }
+
+    if (capacity != null && capacity > 0) {
+      final countResponse = await _supabase
+          .from('workshop_participants')
+          .select('meeting_id')
+          .eq('meeting_id', meetingId);
+      
+      final currentCount = (countResponse as List).length;
+      if (currentCount >= capacity) {
+        throw Exception('This workshop has reached its maximum capacity.');
+      }
+    }
+
+    // 3. Register
     await _supabase.from('workshop_participants').insert({
       'meeting_id': meetingId,
       'student_id': user.id,
     });
   }
 
+  Future<void> unregisterFromWorkshop(String meetingId) async {
+    final user = CurrentSession().user;
+    if (user == null) throw Exception('User not logged in');
+
+    await _supabase
+        .from('workshop_participants')
+        .delete()
+        .match({'meeting_id': meetingId, 'student_id': user.id});
+  }
+
   Future<void> deleteMeeting(String meetingId) async {
     final user = CurrentSession().user;
     if (user == null) throw Exception('User not logged in');
+
+    // Manually delete participants first to avoid foreign key constraints
+    await _supabase
+        .from('workshop_participants')
+        .delete()
+        .eq('meeting_id', meetingId);
 
     await _supabase
         .from('meetings')
         .delete()
         .match({'id': meetingId, 'mentor_id': user.id});
+  }
+
+  Future<void> updateMeeting(String meetingId, DateTime date, TimeOfDay time) async {
+    final user = CurrentSession().user;
+    if (user == null) throw Exception('User not logged in');
+
+    final meetingDate = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+
+    if (meetingDate.isBefore(DateTime.now())) {
+      throw Exception('Cannot schedule a meeting in the past.');
+    }
+
+    await _supabase
+        .from('meetings')
+        .update({'meeting_date': meetingDate.toUtc().toIso8601String()})
+        .match({'id': meetingId, 'mentor_id': user.id});
+  }
+
+  Future<Map<String, dynamic>?> getMeetingDetails(String meetingId) async {
+    final user = CurrentSession().user;
+    if (user == null) return null;
+
+    try {
+      final response = await _supabase
+          .from('meetings')
+          .select('*, mentor:mentor_id(first_name, last_name)')
+          .eq('id', meetingId)
+          .single();
+
+      final registrations = await _supabase
+          .from('workshop_participants')
+          .select('meeting_id')
+          .eq('meeting_id', meetingId)
+          .eq('student_id', user.id);
+
+      final Map<String, dynamic> meetingMap = Map<String, dynamic>.from(response);
+      meetingMap['is_registered'] = registrations.isNotEmpty;
+      return meetingMap;
+    } catch (e) {
+      debugPrint('Error getting meeting details: $e');
+      return null;
+    }
   }
 }

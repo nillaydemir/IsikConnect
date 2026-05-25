@@ -10,6 +10,7 @@ class ForumComment {
   final String authorName;
   final String authorRole;
   final String? authorProfileImageUrl;
+  final bool isAuthorDeleted;
 
   ForumComment({
     required this.id,
@@ -21,6 +22,7 @@ class ForumComment {
     required this.authorName,
     required this.authorRole,
     this.authorProfileImageUrl,
+    this.isAuthorDeleted = false,
   });
 
   factory ForumComment.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,7 @@ class ForumComment {
     final String name = '$fName $lName'.trim();
     final String role = users?['role'] ?? 'student';
     final String? profileImage = users?['profile_image_url'];
+    final bool isDeleted = users?['is_deleted'] == true;
 
     return ForumComment(
       id: json['id'],
@@ -41,6 +44,7 @@ class ForumComment {
       authorName: name,
       authorRole: role,
       authorProfileImageUrl: profileImage,
+      isAuthorDeleted: isDeleted,
     );
   }
 }

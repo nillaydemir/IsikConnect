@@ -5,7 +5,7 @@ import '../widgets/mentor_request_card.dart';
 import 'mentor_request_detail_screen.dart';
 
 class PendingMentorsScreen extends StatefulWidget {
-  const PendingMentorsScreen({Key? key}) : super(key: key);
+  const PendingMentorsScreen({super.key});
 
   @override
   State<PendingMentorsScreen> createState() => _PendingMentorsScreenState();

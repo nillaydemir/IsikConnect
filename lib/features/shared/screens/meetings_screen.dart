@@ -9,18 +9,26 @@ class MeetingsScreen extends StatefulWidget {
   const MeetingsScreen({super.key});
 
   @override
-  State<MeetingsScreen> createState() => _MeetingsScreenState();
+  State<MeetingsScreen> createState() => MeetingsScreenState();
 }
 
-class _MeetingsScreenState extends State<MeetingsScreen> {
+class MeetingsScreenState extends State<MeetingsScreen> {
   final _meetingService = MeetingService();
   final String currentUserId = CurrentSession().user?.id ?? '';
   bool _isMentor = false;
+  late Future<List<Map<String, dynamic>>> _meetingsFuture;
 
   @override
   void initState() {
     super.initState();
     _checkRole();
+    _meetingsFuture = _meetingService.getMeetings();
+  }
+
+  void fetchMeetings() {
+    setState(() {
+      _meetingsFuture = _meetingService.getMeetings();
+    });
   }
 
   Future<void> _checkRole() async {
@@ -42,7 +50,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
 
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Scaffold(
         backgroundColor: Colors.grey[50],
         appBar: AppBar(
@@ -62,9 +70,8 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
             indicatorColor: primaryColor,
             labelStyle: TextStyle(fontWeight: FontWeight.bold),
             tabs: [
-              Tab(text: 'All'),
               Tab(text: 'Workshops'),
-              Tab(text: 'My Meetings'),
+              Tab(text: '1-on-1'),
               Tab(text: 'Past'),
             ],
           ),
@@ -80,14 +87,14 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                     ),
                   );
                   if (result == true) {
-                    setState(() {}); // Refresh future builder
+                    fetchMeetings();
                   }
                 },
               ),
           ],
         ),
         body: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _meetingService.getMeetings(),
+          future: _meetingsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -115,37 +122,35 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
             return TabBarView(
               children: [
                 _MeetingList(
-                  type: 'All',
-                  meetings: upcomingMeetings,
-                  currentUserId: currentUserId,
-                  onRefresh: () => setState(() {}),
-                ),
-                _MeetingList(
                   type: 'Workshops',
                   meetings: upcomingMeetings
                       .where((m) => m['meeting_type'] == 'Workshop')
                       .toList(),
                   currentUserId: currentUserId,
-                  onRefresh: () => setState(() {}),
+                  onRefresh: fetchMeetings,
                 ),
                 _MeetingList(
-                  type: 'My Meetings',
+                  type: '1-on-1',
                   meetings: upcomingMeetings
-                      .where(
-                        (m) =>
-                            m['mentor_id'] == currentUserId ||
-                            m['student_id'] == currentUserId ||
-                            (m['is_registered'] == true),
-                      )
+                      .where((m) =>
+                          m['meeting_type'] == '1-on-1' &&
+                          (m['mentor_id'] == currentUserId ||
+                              m['student_id'] == currentUserId))
                       .toList(),
                   currentUserId: currentUserId,
-                  onRefresh: () => setState(() {}),
+                  onRefresh: fetchMeetings,
                 ),
                 _MeetingList(
                   type: 'Past',
-                  meetings: pastMeetings,
+                  meetings: pastMeetings
+                      .where((m) =>
+                          m['meeting_type'] == 'Workshop' ||
+                          (m['meeting_type'] == '1-on-1' &&
+                              (m['mentor_id'] == currentUserId ||
+                                  m['student_id'] == currentUserId)))
+                      .toList(),
                   currentUserId: currentUserId,
-                  onRefresh: () => setState(() {}),
+                  onRefresh: fetchMeetings,
                 ),
               ],
             );
@@ -183,14 +188,41 @@ class _MeetingListState extends State<_MeetingList> {
     });
     try {
       await _meetingService.registerForWorkshop(meetingId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Successfully registered for workshop!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Successfully registered for workshop!')),
+        );
+      }
       widget.onRefresh();
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to register: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to register: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processingMeetings.remove(meetingId);
+        });
+      }
+    }
+  }
+
+  Future<void> _handleUnregister(String meetingId) async {
+    setState(() {
+      _processingMeetings.add(meetingId);
+    });
+    try {
+      await _meetingService.unregisterFromWorkshop(meetingId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Successfully unregistered from workshop.')),
+        );
+      }
+      widget.onRefresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to unregister: $e')));
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -204,11 +236,26 @@ class _MeetingListState extends State<_MeetingList> {
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
 
-    if (widget.meetings.isEmpty) {
-      return const Center(child: Text('No meetings here.'));
-    }
-
-    return ListView.builder(
+    return RefreshIndicator(
+      onRefresh: () async {
+        widget.onRefresh();
+      },
+      color: primaryColor,
+      child: widget.meetings.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 150),
+                Center(
+                  child: Text(
+                    'No meetings here.',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                ),
+              ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: widget.meetings.length,
       itemBuilder: (context, index) {
@@ -290,7 +337,7 @@ class _MeetingListState extends State<_MeetingList> {
                         ),
                       ),
                     ),
-                    Row(
+                      Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
@@ -301,6 +348,58 @@ class _MeetingListState extends State<_MeetingList> {
                             fontSize: 13,
                           ),
                         ),
+                        if (isHost && !isPast) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.edit_calendar,
+                              color: primaryColor,
+                              size: 20,
+                            ),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            onPressed: () async {
+                              DateTime selectedDate = meetingDate ?? DateTime.now();
+                              TimeOfDay selectedTime = meetingDate != null
+                                  ? TimeOfDay(hour: meetingDate.hour, minute: meetingDate.minute)
+                                  : TimeOfDay.now();
+
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                              );
+
+                              if (date == null) return;
+
+                              if (context.mounted) {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: selectedTime,
+                                );
+                                
+                                if (time == null) return;
+                                
+                                try {
+                                  await _meetingService.updateMeeting(meetingIdStr, date, time);
+                                  widget.onRefresh();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Meeting updated successfully.')),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e')),
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                          ),
+                        ],
                         if (isHost) ...[
                           const SizedBox(width: 8),
                           IconButton(
@@ -478,68 +577,136 @@ class _MeetingListState extends State<_MeetingList> {
                     ),
                   )
                 else
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (!isJoined) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'You are not a participant in this meeting.',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (!isJoined) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'You are not a participant in this meeting.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
 
-                        if (isTooEarly && meetingDate != null) {
-                          final validTime = meetingDate.subtract(
-                            const Duration(minutes: 10),
-                          );
-                          final timeStr =
-                              '${validTime.hour.toString().padLeft(2, '0')}:${validTime.minute.toString().padLeft(2, '0')}';
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Etkinliğe saat $timeStr itibariyle giriş yapabilirsiniz.',
-                              ),
-                              backgroundColor: Colors.orange,
-                            ),
-                          );
-                          return;
-                        }
+                            if (isTooEarly) {
+                              final validTime = meetingDate.subtract(
+                                const Duration(minutes: 10),
+                              );
+                              final timeStr =
+                                  '${validTime.hour.toString().padLeft(2, '0')}:${validTime.minute.toString().padLeft(2, '0')}';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Etkinliğe saat $timeStr itibariyle giriş yapabilirsiniz.',
+                                  ),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                              return;
+                            }
 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                VideoCallScreen(channelName: meetingIdStr),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    VideoCallScreen(channelName: meetingIdStr),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isTooEarly
+                                ? Colors.orange.shade100
+                                : primaryColor,
+                            foregroundColor: isTooEarly
+                                ? Colors.orange.shade800
+                                : Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isTooEarly
-                            ? Colors.grey.shade400
-                            : primaryColor,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          child: isTooEarly
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.lock_clock, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Opens at ${meetingDate.subtract(const Duration(minutes: 10)).hour.toString().padLeft(2, '0')}:${meetingDate.subtract(const Duration(minutes: 10)).minute.toString().padLeft(2, '0')}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                )
+                              : const Text(
+                                  'Join Meeting',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text(
-                        'Join Meeting',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                      if (isWorkshop && isRegistered && !isHost) ...[
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _processingMeetings.contains(meetingIdStr)
+                              ? null
+                              : () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Cancel Registration'),
+                                      content: const Text(
+                                        'Are you sure you want to cancel your registration for this workshop?',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('No'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: Colors.red,
+                                          ),
+                                          child: const Text('Cancel Registration'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    _handleUnregister(meetingIdStr);
+                                  }
+                                },
+                          child: _processingMeetings.contains(meetingIdStr)
+                              ? const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Cancel Registration',
+                                  style: TextStyle(color: Colors.redAccent),
+                                ),
+                        ),
+                      ],
+                    ],
                   ),
               ],
             ),
           ),
         );
       },
-    );
+    ),
+  );
   }
 }

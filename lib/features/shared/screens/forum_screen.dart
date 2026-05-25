@@ -15,6 +15,7 @@ class ForumScreen extends StatefulWidget {
 
 class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _refreshCount = 0;
 
   @override
   void initState() {
@@ -28,7 +29,7 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  void _onAddPressed() {
+  void _onAddPressed() async {
     final role = CurrentSession().user?.role ?? 'student';
     String initialCategory = 'Q&A';
     
@@ -37,18 +38,23 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
       if (_tabController.index == 2) initialCategory = 'Workshops';
     }
 
-    Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => CreatePostScreen(initialCategory: initialCategory),
       ),
     );
+
+    if (result == true && mounted) {
+      setState(() {
+        _refreshCount++;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
-    final role = CurrentSession().user?.role ?? 'student';
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -72,10 +78,10 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          _ForumList(category: 'Announcements'),
-          _ForumList(category: 'Q&A'),
-          _ForumList(category: 'Workshops'),
+        children: [
+          _ForumList(category: 'Announcements', refreshTrigger: _refreshCount),
+          _ForumList(category: 'Q&A', refreshTrigger: _refreshCount),
+          _ForumList(category: 'Workshops', refreshTrigger: _refreshCount),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -87,55 +93,124 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
   }
 }
 
-class _ForumList extends StatelessWidget {
+class _ForumList extends StatefulWidget {
   final String category;
-  const _ForumList({required this.category});
+  final int refreshTrigger;
+  const _ForumList({required this.category, required this.refreshTrigger});
+
+  @override
+  State<_ForumList> createState() => _ForumListState();
+}
+
+class _ForumListState extends State<_ForumList> with AutomaticKeepAliveClientMixin {
+  late Future<List<ForumPost>> _postsFuture;
+  final _forumService = ForumService();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPosts();
+  }
+
+  void _loadPosts() {
+    _postsFuture = _forumService.fetchPosts(widget.category);
+  }
+
+  Future<void> _refresh() async {
+    if (mounted) {
+      setState(() {
+        _loadPosts();
+      });
+    }
+    await _postsFuture;
+  }
+
+  @override
+  void didUpdateWidget(_ForumList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTrigger != widget.refreshTrigger) {
+      _refresh();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<ForumPost>>(
-      stream: ForumService().getPostsStream(category),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    super.build(context);
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: FutureBuilder<List<ForumPost>>(
+        future: _postsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        if (snapshot.hasError) {
-          return Center(child: Text('Error loading posts: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
-        }
-
-        final posts = snapshot.data ?? [];
-
-        if (posts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          if (snapshot.hasError) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                Icon(Icons.forum_outlined, size: 64, color: Colors.grey.shade300),
-                const SizedBox(height: 16),
-                Text('No posts in $category yet.', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
+                SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Error loading posts: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
               ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: posts.length,
-          itemBuilder: (context, index) {
-            final post = posts[index];
-            return PostCard(
-              post: post,
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => PostDetailScreen(post: post)),
-                );
-              },
             );
-          },
-        );
-      },
+          }
+
+          final posts = snapshot.data ?? [];
+
+          if (posts.isEmpty) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.forum_outlined, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No posts in ${widget.category} yet.',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              final post = posts[index];
+              return PostCard(
+                post: post,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => PostDetailScreen(post: post)),
+                  );
+                  _refresh();
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
