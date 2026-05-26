@@ -1,9 +1,46 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'current_session.dart';
 
 class MeetingService {
   final _supabase = Supabase.instance.client;
+
+  static final Set<String> _joinedMeetingIds = {};
+  static bool _isLoaded = false;
+
+  static Future<Set<String>> getJoinedMeetings() async {
+    if (_isLoaded) return _joinedMeetingIds;
+    try {
+      final tempDir = Directory.systemTemp;
+      final file = File('${tempDir.path}/joined_meetings.json');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final List<dynamic> list = jsonDecode(content);
+        _joinedMeetingIds.addAll(list.map((e) => e.toString()));
+      }
+    } catch (e) {
+      debugPrint('Error loading joined meetings: $e');
+    }
+    _isLoaded = true;
+    return _joinedMeetingIds;
+  }
+
+  static Future<void> markMeetingAsJoined(String meetingId) async {
+    _joinedMeetingIds.add(meetingId);
+    try {
+      final tempDir = Directory.systemTemp;
+      final file = File('${tempDir.path}/joined_meetings.json');
+      await file.writeAsString(jsonEncode(_joinedMeetingIds.toList()));
+    } catch (e) {
+      debugPrint('Error saving joined meetings: $e');
+    }
+  }
+
+  static bool hasJoinedMeeting(String meetingId) {
+    return _joinedMeetingIds.contains(meetingId);
+  }
 
   Future<void> createMeeting({
     required String title,
