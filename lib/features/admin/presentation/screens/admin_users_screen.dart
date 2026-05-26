@@ -37,6 +37,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           .from('users')
           .select()
           .not('role', 'eq', 'admin')
+          .eq('is_approved', true)
           .order('created_at', ascending: false);
 
       final users = (response as List).map((u) => AppUser.fromJson(u)).toList();
@@ -122,51 +123,87 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                 );
                               },
                               borderRadius: BorderRadius.circular(12),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: primaryColor.withValues(alpha: 0.1),
-                                  backgroundImage: user.profileImageUrl != null
-                                      ? NetworkImage(user.profileImageUrl!)
-                                      : null,
-                                  child: user.profileImageUrl == null
-                                      ? Text(
-                                          (user.name ?? 'U')[0].toUpperCase(),
-                                          style: const TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
-                                        )
-                                      : null,
-                                ),
-                                title: Text(
-                                  user.name ?? 'Unknown User',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(user.email, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: user.role == 'mentor'
-                                            ? Colors.blue.withValues(alpha: 0.1)
-                                            : Colors.orange.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        user.role.toUpperCase(),
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: user.role == 'mentor' ? Colors.blue : Colors.orange,
-                                        ),
-                                      ),
+                              child: Opacity(
+                                opacity: user.isDeleted ? 0.5 : 1.0,
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: primaryColor.withValues(alpha: 0.1),
+                                    backgroundImage: user.profileImageUrl != null
+                                        ? NetworkImage(user.profileImageUrl!)
+                                        : null,
+                                    child: user.profileImageUrl == null
+                                        ? Text(
+                                            (user.name ?? 'U')[0].toUpperCase(),
+                                            style: const TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                                          )
+                                        : null,
+                                  ),
+                                  title: Text(
+                                    user.name ?? 'Unknown User',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      decoration: user.isDeleted ? TextDecoration.lineThrough : null,
                                     ),
-                                  ],
-                                ),
-                                trailing: Icon(
-                                  user.isApproved ? Icons.check_circle : Icons.pending,
-                                  color: user.isApproved ? Colors.green : Colors.amber,
-                                  size: 20,
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(user.email, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: user.isDeleted
+                                                  ? Colors.red.withValues(alpha: 0.1)
+                                                  : (user.role == 'mentor'
+                                                      ? Colors.blue.withValues(alpha: 0.1)
+                                                      : Colors.orange.withValues(alpha: 0.1)),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              user.isDeleted ? 'SİLİNMİŞ' : user.role.toUpperCase(),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: user.isDeleted
+                                                    ? Colors.red
+                                                    : (user.role == 'mentor' ? Colors.blue : Colors.orange),
+                                              ),
+                                            ),
+                                          ),
+                                          if (user.isDeleted) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                user.role.toUpperCase(),
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: Icon(
+                                    user.isDeleted
+                                        ? Icons.delete_outline
+                                        : (user.isApproved ? Icons.check_circle : Icons.pending),
+                                    color: user.isDeleted
+                                        ? Colors.red
+                                        : (user.isApproved ? Colors.green : Colors.amber),
+                                    size: 20,
+                                  ),
                                 ),
                               ),
                             ),
