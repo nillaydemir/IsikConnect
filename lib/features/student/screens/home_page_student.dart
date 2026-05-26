@@ -470,6 +470,13 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                  _matchedMentor = null;
                });
              }
+             MatchingService().getCancelledMatchCount(user.id).then((count) {
+               if (mounted) {
+                 setState(() {
+                   _cancelledCount = count;
+                 });
+               }
+             });
            } else if (studentData['matched_mentor_id'] != null && _matchedMentor == null) {
              // New match found
              _fetchExistingMatch();
@@ -749,10 +756,12 @@ class _MyMentorTabState extends State<_MyMentorTab> {
       final matchingService = MatchingService();
       await matchingService.cancelMatch(_currentStudent!.id, _matchedMentor!.id);
       
+      final updatedCount = await matchingService.getCancelledMatchCount(_currentStudent!.id);
+      
       setState(() {
         _matchedMentor = null;
         _errorMessage = "Match cancelled successfully.";
-        _cancelledCount++;
+        _cancelledCount = updatedCount;
       });
     } catch (e) {
       setState(() {

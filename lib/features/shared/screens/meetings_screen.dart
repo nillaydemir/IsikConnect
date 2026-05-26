@@ -119,6 +119,12 @@ class MeetingsScreenState extends State<MeetingsScreen> {
               return DateTime.parse(m['meeting_date']).isBefore(now);
             }).toList();
 
+            pastMeetings.sort((a, b) {
+              final dateA = DateTime.parse(a['meeting_date']);
+              final dateB = DateTime.parse(b['meeting_date']);
+              return dateB.compareTo(dateA);
+            });
+
             return TabBarView(
               children: [
                 _MeetingList(

@@ -64,8 +64,16 @@ class MatchingService {
       final mId = match['mentor_id'].toString();
       
       // If student is deleted, do not count this cancellation against the mentor
-      final studentsData = match['students'];
-      if (studentsData != null) {
+      final studentsDataRaw = match['students'];
+      if (studentsDataRaw != null) {
+        Map<String, dynamic> studentsData;
+        if (studentsDataRaw is List) {
+          if (studentsDataRaw.isEmpty) continue;
+          studentsData = studentsDataRaw.first;
+        } else {
+          studentsData = studentsDataRaw as Map<String, dynamic>;
+        }
+        
         final usersData = studentsData['users'];
         if (usersData != null && usersData['is_deleted'] == true) {
           debugPrint('Skipping cancelled match for mentor $mId in limit calculation because the student deleted their account.');
@@ -79,6 +87,11 @@ class MatchingService {
     List<Mentor> mentors = [];
     for (var row in response) {
       final mentorIdStr = row['id'].toString();
+      
+      if (row['is_deleted'] == true) {
+        debugPrint('Skipping mentor $mentorIdStr because their user account is deleted.');
+        continue;
+      }
       
       if (cancelledMentorIds.contains(mentorIdStr)) {
         debugPrint('Skipping mentor $mentorIdStr because they were previously cancelled by this student.');
@@ -94,6 +107,11 @@ class MatchingService {
         mentorData = mentorDataRaw.first;
       } else {
         mentorData = mentorDataRaw as Map<String, dynamic>;
+      }
+
+      if (mentorData['status'] == 'deleted') {
+        debugPrint('Skipping mentor $mentorIdStr because their mentor profile is marked as deleted.');
+        continue;
       }
 
       int maxCapacity = mentorData['max_students'] ?? 1;
@@ -228,8 +246,16 @@ class MatchingService {
         
     int count = 0;
     for (var match in response as List) {
-      final mentorsData = match['mentors'];
-      if (mentorsData != null) {
+      final mentorsDataRaw = match['mentors'];
+      if (mentorsDataRaw != null) {
+        Map<String, dynamic> mentorsData;
+        if (mentorsDataRaw is List) {
+          if (mentorsDataRaw.isEmpty) continue;
+          mentorsData = mentorsDataRaw.first;
+        } else {
+          mentorsData = mentorsDataRaw as Map<String, dynamic>;
+        }
+        
         final usersData = mentorsData['users'];
         if (usersData != null && usersData['is_deleted'] == true) {
           debugPrint('Ignoring cancelled match in student $studentId rights count because the mentor deleted their account.');
@@ -253,8 +279,16 @@ class MatchingService {
         
     int count = 0;
     for (var match in response as List) {
-      final studentsData = match['students'];
-      if (studentsData != null) {
+      final studentsDataRaw = match['students'];
+      if (studentsDataRaw != null) {
+        Map<String, dynamic> studentsData;
+        if (studentsDataRaw is List) {
+          if (studentsDataRaw.isEmpty) continue;
+          studentsData = studentsDataRaw.first;
+        } else {
+          studentsData = studentsDataRaw as Map<String, dynamic>;
+        }
+        
         final usersData = studentsData['users'];
         if (usersData != null && usersData['is_deleted'] == true) {
           debugPrint('Ignoring cancelled match in mentor $mentorId rights count because the student deleted their account.');
