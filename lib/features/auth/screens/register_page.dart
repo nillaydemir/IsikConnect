@@ -157,6 +157,18 @@ class _RegisterPageState extends State<RegisterPage> {
         );
         return;
       }
+      if (_selectedRole == 'Student') {
+        final email = _emailController.text.trim().toLowerCase();
+        if (!email.endsWith('@isik.edu.tr')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Students must register with an @isik.edu.tr email address.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
     } else if (_currentStep == 2) {
       if (_selectedDepartment == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -232,6 +244,10 @@ class _RegisterPageState extends State<RegisterPage> {
           throw result['message'] ?? 'Registration failed.';
         }
       } else {
+        if (!email.toLowerCase().endsWith('@isik.edu.tr')) {
+          throw 'Students must register with an @isik.edu.tr email address.';
+        }
+
         if (_selectedPlatformFile == null) {
           throw 'Please upload your student document (Öğrenci Belgesi).';
         }

@@ -28,6 +28,9 @@ const registerStudent = async (req, res) => {
   if (!email || !password || !full_name) {
     return res.status(400).json({ message: "Email, password, and full name are required." });
   }
+  if (!email.toLowerCase().endsWith('@isik.edu.tr')) {
+    return res.status(400).json({ message: "Only @isik.edu.tr email addresses are allowed for student registration." });
+  }
   if (!req.file) {
     return res.status(400).json({ message: "Student document (öğrenci belgesi) is required." });
   }

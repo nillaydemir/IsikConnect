@@ -18,7 +18,7 @@ const listPendingApplications = async (req, res) => {
     for (const app of data) {
       try {
         // Fetch user auth details using Admin API to check email confirmation status
-        const { data: authUserData, error: authUserError } = await supabase.auth.admin.getUser(app.user_id);
+        const { data: authUserData, error: authUserError } = await supabase.auth.admin.getUserById(app.user_id);
         if (authUserError || !authUserData || !authUserData.user || !authUserData.user.email_confirmed_at) {
           // Skip application if email is not verified yet
           continue;
