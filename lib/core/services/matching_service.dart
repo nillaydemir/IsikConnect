@@ -347,32 +347,38 @@ class MatchingService {
       return 0; 
     }
 
-    // 2. HARD CONSTRAINT: Department must match
-    if (student.department.trim().toLowerCase() != mentor.department.trim().toLowerCase()) {
-      debugPrint('REJECTED: Department mismatch ("${student.department}" vs "${mentor.department}")');
-      return 0;
-    }
-
-    // 3. Department Match Bonus (Now implicit since it's required, but we give a base score)
-    score += departmentMatchScore;
-    debugPrint('Department Match! (+$departmentMatchScore)');
-
-    // 4. Add points for common days
-    score += commonDays.length * 5;
-    debugPrint('Common Days Score: ${commonDays.length * 5}');
-
-    // 5. Skills Match
+    // 2. SKILL MATCH CALCULATION
     int skillMatches = 0;
     for (var requirement in student.requestedTopics) {
       bool hasMatch = mentor.skills.any((skill) => 
           skill.trim().toLowerCase() == requirement.trim().toLowerCase());
           
       if (hasMatch) {
-        score += skillMatchScore;
         skillMatches++;
       }
     }
-    if (skillMatches > 0) debugPrint('Skill Matches: $skillMatches (+${skillMatches * skillMatchScore})');
+
+    // 3. CORE REQUIREMENT: Must have EITHER same department OR at least one matching skill
+    bool isDepartmentMatch = student.department.trim().toLowerCase() == mentor.department.trim().toLowerCase();
+    
+    if (!isDepartmentMatch && skillMatches == 0) {
+      debugPrint('REJECTED: Neither department nor skills match ("${student.department}" vs "${mentor.department}")');
+      return 0;
+    }
+
+    // 4. SCORING
+    if (isDepartmentMatch) {
+      score += departmentMatchScore;
+      debugPrint('Department Match! (+$departmentMatchScore)');
+    }
+
+    score += commonDays.length * 5;
+    debugPrint('Common Days Score: ${commonDays.length * 5}');
+
+    if (skillMatches > 0) {
+      score += skillMatches * skillMatchScore;
+      debugPrint('Skill Matches: $skillMatches (+${skillMatches * skillMatchScore})');
+    }
 
     debugPrint('Final Total Score: $score');
     return score;

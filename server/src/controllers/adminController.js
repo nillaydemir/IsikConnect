@@ -16,14 +16,25 @@ const listPendingApplications = async (req, res) => {
 
     let enrichedData = [];
     for (const app of data) {
-      if (app.role === 'student') {
-        const { data: student } = await supabase.from('students').select('class_level').eq('id', app.user_id).single();
-        enrichedData.push({ ...app, specific: { ...student, department: app.users.department } });
-      } else if (app.role === 'mentor') {
-        const { data: mentor } = await supabase.from('mentors').select('company, job_title').eq('id', app.user_id).single();
-        enrichedData.push({ ...app, specific: { ...mentor, department: app.users.department } });
-      } else {
-        enrichedData.push({ ...app });
+      try {
+        // Fetch user auth details using Admin API to check email confirmation status
+        const { data: authUserData, error: authUserError } = await supabase.auth.admin.getUserById(app.user_id);
+        if (authUserError || !authUserData || !authUserData.user || !authUserData.user.email_confirmed_at) {
+          // Skip application if email is not verified yet
+          continue;
+        }
+
+        if (app.role === 'student') {
+          const { data: student } = await supabase.from('students').select('class_level').eq('id', app.user_id).single();
+          enrichedData.push({ ...app, specific: { ...student, department: app.users.department } });
+        } else if (app.role === 'mentor') {
+          const { data: mentor } = await supabase.from('mentors').select('company, job_title').eq('id', app.user_id).single();
+          enrichedData.push({ ...app, specific: { ...mentor, department: app.users.department } });
+        } else {
+          enrichedData.push({ ...app });
+        }
+      } catch (err) {
+        console.error(`Error processing pending application for user ${app.user_id}:`, err);
       }
     }
 

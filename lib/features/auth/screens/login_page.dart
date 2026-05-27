@@ -67,7 +67,26 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   obscureText: true,
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/forgot-password');
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color.fromARGB(255, 38, 55, 140),
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 22),
                 ElevatedButton(
                   onPressed: () async {
                     final email = _emailController.text.trim();

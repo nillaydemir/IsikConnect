@@ -73,16 +73,26 @@ const registerMentor = async (req, res) => {
     
     graduation_doc_url = publicUrlData.publicUrl;
 
-    // 2. Create user in Supabase Auth using Admin API (auto-confirms email)
+    // 2. Create user in Supabase Auth using Admin API (requires email verification)
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: true
+      email_confirm: false
     });
 
     if (authError) {
       console.error('Supabase Auth error:', authError);
       return res.status(400).json({ message: authError.message });
+    }
+
+    // Trigger email verification manually because admin.createUser doesn't send it automatically
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email: email
+    });
+
+    if (resendError) {
+      console.error('Supabase Resend error:', resendError);
     }
 
     const userId = authData.user.id;

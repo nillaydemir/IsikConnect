@@ -71,6 +71,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _selectedFilePath;
   dynamic
   _selectedPlatformFile; // Store PlatformFile for cross-platform support
+  bool _kvkkApproved = false;
 
   @override
   void initState() {
@@ -156,6 +157,18 @@ class _RegisterPageState extends State<RegisterPage> {
         );
         return;
       }
+      if (_selectedRole == 'Student') {
+        final email = _emailController.text.trim().toLowerCase();
+        if (!email.endsWith('@isik.edu.tr')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Students must register with an @isik.edu.tr email address.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
     } else if (_currentStep == 2) {
       if (_selectedDepartment == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -170,6 +183,15 @@ class _RegisterPageState extends State<RegisterPage> {
         _currentStep++;
       });
     } else {
+      if (!_kvkkApproved) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please read and approve the KVKK Consent Text to complete registration.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
       _submitRegistration();
     }
   }
@@ -217,19 +239,15 @@ class _RegisterPageState extends State<RegisterPage> {
 
         if (result['message'] != null && result['id'] != null) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message']),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Future.delayed(const Duration(seconds: 1), () {
-            if (mounted) Navigator.pop(context);
-          });
+          _showSuccessDialog();
         } else {
           throw result['message'] ?? 'Registration failed.';
         }
       } else {
+        if (!email.toLowerCase().endsWith('@isik.edu.tr')) {
+          throw 'Students must register with an @isik.edu.tr email address.';
+        }
+
         if (_selectedPlatformFile == null) {
           throw 'Please upload your student document (Öğrenci Belgesi).';
         }
@@ -255,15 +273,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
         if (result['message'] != null && result['id'] != null) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message']),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Future.delayed(const Duration(seconds: 1), () {
-            if (mounted) Navigator.pop(context);
-          });
+          _showSuccessDialog();
         } else {
           throw result['message'] ?? 'Student registration failed.';
         }
@@ -280,6 +290,43 @@ class _RegisterPageState extends State<RegisterPage> {
         _isLoading = false;
       });
     }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.mark_email_unread, color: Color.fromARGB(255, 38, 55, 140)),
+            SizedBox(width: 8),
+            Text('Verify Your Email', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Registration successful!\n\n'
+          'A verification link has been sent to your email address. '
+          'Please verify your email to activate your account.\n\n'
+          'Once verified, your documents will be reviewed by the admin. '
+          'You will be able to log in after admin approval.',
+          style: TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back to login screen
+            },
+            child: const Text(
+              'OK',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Color.fromARGB(255, 38, 55, 140)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _cancelStep() {
@@ -414,12 +461,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               isActive: _currentStep >= 3,
-              content: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16.0),
-                child: Text(
-                  'By clicking submit, you agree to our terms and conditions. Welcome to IşıkConnect!',
-                ),
-              ),
+              content: _buildFinalReview(),
             ),
           ],
         ),
@@ -1058,6 +1100,108 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFinalReview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'You are almost done! Please review and accept the consent terms below to submit your registration application.',
+          style: TextStyle(fontSize: 15, height: 1.4),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: _kvkkApproved,
+              onChanged: (bool? value) {
+                setState(() {
+                  _kvkkApproved = value ?? false;
+                });
+              },
+              activeColor: const Color.fromARGB(255, 38, 55, 140),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _kvkkApproved = !_kvkkApproved;
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(color: Colors.black87, fontSize: 14, height: 1.3),
+                      children: [
+                        const TextSpan(text: 'I have read and agree to the '),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: GestureDetector(
+                            onTap: _showKvkkDialog,
+                            child: const Text(
+                              'KVKK Consent Text',
+                              style: TextStyle(
+                                color: Color.fromARGB(255, 38, 55, 140),
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const TextSpan(text: '.'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showKvkkDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('KVKK Consent Text', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text(
+                  'IşıkConnect - KVKK / Personal Data Protection Consent Text',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'In accordance with the Law on the Protection of Personal Data No. 6698 ("KVKK"), your personal data collected through the IşıkConnect mobile application (name, surname, email, phone number, academic department, and student/graduation documents you upload) will be processed by the IşıkConnect administration as the data controller within the scope specified below:\n\n'
+                  '1. Purposes of Data Processing: Creation of user accounts, management of student and mentor matching processes, ensuring platform security, and performing academic verifications.\n\n'
+                  '2. Transfer of Data: Your collected personal data will never be shared with third parties, except for authorized public institutions and organizations to fulfill legal obligations.\n\n'
+                  '3. Method of Data Collection: Data is collected through digital means via the registration form and the documents you upload.\n\n'
+                  '4. Your Rights: Pursuant to Article 11 of the KVKK, you have the right to apply to the data controller at any time to learn whether your personal data is being processed, and request correction or deletion of your data.',
+                  style: TextStyle(fontSize: 14, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Color.fromARGB(255, 38, 55, 140), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }
