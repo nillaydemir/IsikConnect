@@ -92,7 +92,7 @@ class ForumPost {
       authorProfileImageUrl: profileImage,
       isAuthorDeleted: isDeleted,
       likeCount: likesList.length,
-      commentCount: commentsList.length,
+      commentCount: commentsList.where((c) => (c as Map<String, dynamic>)['is_deleted'] != true).length,
       participantCount: participantsList.length,
       isLikedByMe: likedByMe,
       isBookmarkedByMe: bookmarkedByMe,

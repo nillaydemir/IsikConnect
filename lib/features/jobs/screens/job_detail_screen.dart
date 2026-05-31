@@ -552,6 +552,34 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (widget.job.isDeleted) ...[
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 24),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.red, size: 24),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'This job posting has been removed by the employer.',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   // Job Title Card
                   _buildHeaderCard(),
                   const SizedBox(height: 24),
@@ -682,6 +710,28 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   // --- Student Section widget ---
   Widget _buildStudentSection() {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
+
+    if (widget.job.isDeleted && !_hasApplied) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Center(
+          child: Text(
+            'Applications Closed (Posting Removed)',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    }
 
     if (!_hasApplied) {
       return SizedBox(

@@ -6,6 +6,7 @@ class JobPosting {
   final String description;
   final String requirements;
   final DateTime createdAt;
+  final bool isDeleted;
 
   // Joined fields from 'users' and 'mentors'
   final String mentorName;
@@ -21,6 +22,7 @@ class JobPosting {
     required this.description,
     required this.requirements,
     required this.createdAt,
+    this.isDeleted = false,
     required this.mentorName,
     this.mentorCompany,
     this.mentorJobTitle,
@@ -48,6 +50,7 @@ class JobPosting {
       description: json['description'] as String,
       requirements: json['requirements'] as String,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      isDeleted: json['is_deleted'] as bool? ?? false,
       mentorName: name,
       mentorCompany: mCompany,
       mentorJobTitle: mJobTitle,
@@ -64,6 +67,7 @@ class JobPosting {
       'description': description,
       'requirements': requirements,
       'created_at': createdAt.toIso8601String(),
+      'is_deleted': isDeleted,
     };
   }
 }

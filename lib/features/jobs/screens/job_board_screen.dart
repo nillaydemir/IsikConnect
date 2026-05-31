@@ -426,6 +426,26 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // Deleted banner if applicable
+                  if (job.isDeleted) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.15)),
+                      ),
+                      child: const Text(
+                        'Posting Removed',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   // Status badge
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

@@ -159,10 +159,11 @@ class ForumService {
           *,
           users!author_id(first_name, last_name, role, profile_image_url, is_deleted),
           forum_likes(user_id),
-          forum_comments(id),
+          forum_comments(id, is_deleted),
           forum_bookmarks(user_id),
           forum_workshop_participants(user_id)
-        ''');
+        ''')
+        .eq('is_deleted', false);
 
     if (category != null) {
       query = query.eq('category', category);
@@ -179,6 +180,7 @@ class ForumService {
         .from('forum_comments')
         .select('*, users!author_id(first_name, last_name, role, profile_image_url, is_deleted)')
         .eq('post_id', postId)
+        .eq('is_deleted', false)
         .order('created_at', ascending: true);
 
     return (response as List).map((json) => ForumComment.fromJson(json)).toList();
@@ -283,7 +285,7 @@ class ForumService {
 
   // --- Delete Post ---
   Future<void> deletePost(String postId, {bool isAdmin = false}) async {
-    var query = _supabase.from('forum_posts').delete().eq('id', postId);
+    var query = _supabase.from('forum_posts').update({'is_deleted': true}).eq('id', postId);
     if (!isAdmin) {
       query = query.eq('author_id', _currentUserId);
     }
@@ -292,7 +294,7 @@ class ForumService {
 
   // --- Delete Comment ---
   Future<void> deleteComment(String commentId, {bool isAdmin = false}) async {
-    var query = _supabase.from('forum_comments').delete().eq('id', commentId);
+    var query = _supabase.from('forum_comments').update({'is_deleted': true}).eq('id', commentId);
     if (!isAdmin) {
       query = query.eq('author_id', _currentUserId);
     }
