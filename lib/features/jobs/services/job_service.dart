@@ -24,6 +24,7 @@ class JobService {
       final response = await _supabase
           .from('job_postings')
           .select('*, users:mentor_id(first_name, last_name, profile_image_url)')
+          .eq('is_deleted', false)
           .order('created_at', ascending: false);
 
       final List<dynamic> data = response;
@@ -41,6 +42,7 @@ class JobService {
           .from('job_postings')
           .select('*, users:mentor_id(first_name, last_name, profile_image_url)')
           .eq('mentor_id', _currentUserId)
+          .eq('is_deleted', false)
           .order('created_at', ascending: false);
 
       final List<dynamic> data = response;
@@ -97,10 +99,9 @@ class JobService {
   // Delete a job posting (UC12)
   Future<void> deleteJobPosting(String id) async {
     try {
-      // Cascade delete is configured on foreign key, so applications will be deleted automatically
       await _supabase
           .from('job_postings')
-          .delete()
+          .update({'is_deleted': true})
           .eq('id', id)
           .eq('mentor_id', _currentUserId); // Security: must be owner
     } catch (e) {
