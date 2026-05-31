@@ -167,7 +167,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
     if (confirm == true) {
       try {
-        await _forumService.deletePost(_currentPost.id);
+        final isAdmin = CurrentSession().user?.role == 'admin';
+        await _forumService.deletePost(_currentPost.id, isAdmin: isAdmin);
         if (!mounted) return;
         Navigator.pop(context, true); // Pop back to feed with true to refresh
         ScaffoldMessenger.of(context).showSnackBar(
@@ -185,6 +186,50 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             ),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _deleteComment(String commentId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Comment'),
+        content: const Text('Are you sure you want to delete this comment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final isAdmin = CurrentSession().user?.role == 'admin';
+        await _forumService.deleteComment(commentId, isAdmin: isAdmin);
+        setState(() {}); // Refresh comments list
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Comment deleted successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting comment: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -251,6 +296,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
     final isQnA = _currentPost.category == 'Q&A';
     final isMyPost = _currentPost.authorId == CurrentSession().user?.id;
+    final isAdmin = CurrentSession().user?.role == 'admin';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -260,7 +306,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
-          if (isMyPost)
+          if (isMyPost || isAdmin)
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'edit') {
@@ -270,16 +316,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 8),
-                      Text('Edit'),
-                    ],
+                if (isMyPost)
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20),
+                        SizedBox(width: 8),
+                        Text('Edit'),
+                      ],
+                    ),
                   ),
-                ),
                 const PopupMenuItem(
                   value: 'delete',
                   child: Row(
@@ -767,6 +814,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                         ],
                                         const Spacer(),
                                         Text(DateFormat('MMM d, h:mm a').format(comment.createdAt), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                                        if (comment.authorId == CurrentSession().user?.id || CurrentSession().user?.role == 'admin') ...[
+                                          const SizedBox(width: 6),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onPressed: () => _deleteComment(comment.id),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                     const SizedBox(height: 4),

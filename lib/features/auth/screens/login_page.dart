@@ -147,6 +147,17 @@ class _LoginPageState extends State<LoginPage> {
                       // Flatten the nested data
                       final Map<String, dynamic> userDoc = Map<String, dynamic>.from(userResponse);
                       
+                      if (userDoc['is_deleted'] == true) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Your account has been deactivated. Please contact support.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      
                       // Helper function to extract nested data safely
                       Map<String, dynamic>? extractData(dynamic data) {
                         if (data == null) return null;
