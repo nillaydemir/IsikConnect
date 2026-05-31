@@ -81,6 +81,39 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
 
+      // Query accepted job applications to count them as active
+      try {
+        final role = CurrentSession().user?.role;
+        if (role == 'student') {
+          final studentJobApps = await _supabase
+              .from('job_applications')
+              .select('id, job_postings(mentor_id)')
+              .eq('student_id', myId)
+              .eq('status', 'accepted');
+          for (var app in studentJobApps) {
+            final job = app['job_postings'] as Map<String, dynamic>?;
+            if (job != null && job['mentor_id'] != null) {
+              final mentorId = job['mentor_id'].toString();
+              userActiveStatus[mentorId] = true;
+            }
+          }
+        } else if (role == 'mentor') {
+          final mentorJobApps = await _supabase
+              .from('job_applications')
+              .select('student_id, job_postings(mentor_id)')
+              .eq('status', 'accepted');
+          for (var app in mentorJobApps) {
+            final job = app['job_postings'] as Map<String, dynamic>?;
+            if (job != null && job['mentor_id'] == myId) {
+              final studentId = app['student_id'].toString();
+              userActiveStatus[studentId] = true;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching job application conversations: $e');
+      }
+
       // 3. Fetch all message-based conversation partners (e.g., admin DMs)
       final sentMessages = await _supabase
           .from('messages')
@@ -459,7 +492,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _matchSubscription = _supabase
         .from('matches')
         .stream(primaryKey: ['id'])
-        .listen((data) {
+        .listen((data) async {
           bool activeFound = false;
           for (var match in data) {
             final sId = match['student_id'];
@@ -469,6 +502,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               activeFound = true;
               break;
             }
+          }
+          if (!activeFound) {
+            try {
+              final mentorId = widget.targetUser.role == 'mentor' ? widget.targetUser.id : _myId;
+              final studentId = widget.targetUser.role == 'mentor' ? _myId : widget.targetUser.id;
+              final jobApps = await _supabase
+                  .from('job_applications')
+                  .select('id, job_postings(mentor_id)')
+                  .eq('student_id', studentId)
+                  .eq('status', 'accepted');
+              for (var app in jobApps) {
+                final job = app['job_postings'] as Map<String, dynamic>?;
+                if (job != null && job['mentor_id'] == mentorId) {
+                  activeFound = true;
+                  break;
+                }
+              }
+            } catch (_) {}
           }
           if (mounted) {
             setState(() {

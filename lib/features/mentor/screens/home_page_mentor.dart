@@ -10,6 +10,7 @@ import '../../shared/screens/forum_screen.dart';
 import '../../forum/services/forum_service.dart';
 import '../../../core/services/meeting_service.dart';
 import '../../../core/services/message_service.dart';
+import '../../jobs/screens/job_board_screen.dart';
 
 class HomePageMentor extends StatefulWidget {
   const HomePageMentor({super.key});
@@ -31,6 +32,7 @@ class _HomePageMentorState extends State<HomePageMentor> {
     _pages = [
       _HomeTab(key: _homeTabKey),
       const ChatScreen(),
+      const JobBoardScreen(),
       const ForumScreen(),
       MeetingsScreen(key: _meetingsTabKey),
       const ProfilePage(),
@@ -43,7 +45,7 @@ class _HomePageMentorState extends State<HomePageMentor> {
     });
     if (index == 0) {
       _homeTabKey.currentState?._fetchUpcomingMeetings();
-    } else if (index == 3) {
+    } else if (index == 4) {
       _meetingsTabKey.currentState?.fetchMeetings();
     }
   }
@@ -155,6 +157,7 @@ class _HomePageMentorState extends State<HomePageMentor> {
               ),
               label: 'Chat',
             ),
+            BottomNavigationBarItem(icon: Icon(Icons.business_center_rounded), label: 'Jobs'),
             BottomNavigationBarItem(icon: Icon(Icons.forum_rounded), label: 'Forum'),
             BottomNavigationBarItem(icon: Icon(Icons.videocam_rounded), label: 'Meetings'),
             BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),

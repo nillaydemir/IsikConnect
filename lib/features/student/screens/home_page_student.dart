@@ -13,6 +13,7 @@ import '../../../core/services/meeting_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/message_service.dart';
 import 'dart:async';
+import '../../jobs/screens/job_board_screen.dart';
 
 class HomePageStudent extends StatefulWidget {
   const HomePageStudent({super.key});
@@ -34,6 +35,7 @@ class _HomePageStudentState extends State<HomePageStudent> {
     _pages = [
       _HomeTab(key: _homeTabKey),
       const ChatScreen(),
+      const JobBoardScreen(),
       const ForumScreen(),
       MeetingsScreen(key: _meetingsTabKey),
       const ProfilePage(),
@@ -46,7 +48,7 @@ class _HomePageStudentState extends State<HomePageStudent> {
     });
     if (index == 0) {
       _homeTabKey.currentState?._fetchData();
-    } else if (index == 3) {
+    } else if (index == 4) {
       _meetingsTabKey.currentState?.fetchMeetings();
     }
   }
@@ -163,6 +165,7 @@ class _HomePageStudentState extends State<HomePageStudent> {
               ),
               label: 'Chat',
             ),
+            BottomNavigationBarItem(icon: Icon(Icons.business_center_rounded), label: 'Jobs'),
             BottomNavigationBarItem(icon: Icon(Icons.forum_rounded), label: 'Forum'),
             BottomNavigationBarItem(icon: Icon(Icons.videocam_rounded), label: 'Meetings'),
             BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
@@ -706,8 +709,13 @@ class _MyMentorTabState extends State<_MyMentorTab> {
         }
       });
     } catch (e) {
+      String userFriendlyMessage = 'An unexpected error occurred while finding a mentor. Please try again later.';
+      final errStr = e.toString();
+      if (errStr.contains('unique_active_student_match') || errStr.contains('23505')) {
+        userFriendlyMessage = 'You already have an active mentorship match. Please refresh the page.';
+      }
       setState(() {
-        _errorMessage = 'Error finding mentor: $e';
+        _errorMessage = userFriendlyMessage;
       });
       debugPrint('Matching error: $e');
     } finally {
@@ -791,7 +799,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
 
     if (_matchedMentor == null) {
       return Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
