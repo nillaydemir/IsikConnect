@@ -388,7 +388,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   border: Border.all(color: Colors.red.shade200, width: 0.5),
                                 ),
                                 child: Text(
-                                  'Kapanan Hesap',
+                                  'Closed Account',
                                   style: TextStyle(
                                     color: Colors.red.shade700,
                                     fontSize: 10,
@@ -596,7 +596,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                               padding: const EdgeInsets.symmetric(vertical: 12),
                                             ),
                                             child: const Text(
-                                              'Süresi Doldu',
+                                              'Time Limit',
                                               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
                                             ),
                                           ),
@@ -642,7 +642,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                                     final timeStr = DateFormat('h:mm a').format(validTime);
                                                     ScaffoldMessenger.of(context).showSnackBar(
                                                       SnackBar(
-                                                        content: Text('Etkinliğe saat $timeStr itibariyle giriş yapabilirsiniz.'),
+                                                        content: Text('You can join the event at $timeStr.'),
                                                         backgroundColor: Colors.orange,
                                                       ),
                                                     );
@@ -800,7 +800,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                               border: Border.all(color: Colors.red.shade200, width: 0.5),
                                             ),
                                             child: Text(
-                                              'Kapanan Hesap',
+                                              'Closed Account',
                                               style: TextStyle(
                                                 color: Colors.red.shade700,
                                                 fontSize: 8,
