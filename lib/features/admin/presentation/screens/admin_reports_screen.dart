@@ -15,10 +15,20 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   List<Map<String, dynamic>> _supportTickets = [];
   List<Map<String, dynamic>> _reviews = [];
 
+  // Statistics Dashboard State
+  int _studentCount = 0;
+  int _mentorCount = 0;
+  int _workshopCount = 0;
+  int _ticketCount = 0;
+  int _openTicketCount = 0;
+  int _activeMatchCount = 0;
+  bool _isLoadingStats = true;
+
   @override
   void initState() {
     super.initState();
     _fetchData();
+    _fetchStats();
   }
 
   Future<void> _fetchData() async {
@@ -42,6 +52,41 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     } catch (e) {
       debugPrint('Error fetching reports: $e');
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchStats() async {
+    if (!mounted) return;
+    setState(() => _isLoadingStats = true);
+    try {
+      final sRes = await _supabase.from('users').select('id').eq('role', 'student').eq('is_deleted', false);
+      final mRes = await _supabase.from('users').select('id').eq('role', 'mentor').eq('is_deleted', false);
+      final wRes = await _supabase.from('forum_posts').select('id').eq('category', 'Workshops');
+      final tRes = await _supabase.from('support_tickets').select('id');
+      final otRes = await _supabase.from('support_tickets').select('id').not('status', 'eq', 'resolved');
+      
+      int activeMatchesCount = 0;
+      try {
+        final amtRes = await _supabase.from('matches').select('id').eq('status', 'active');
+        activeMatchesCount = amtRes.length;
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _studentCount = sRes.length;
+          _mentorCount = mRes.length;
+          _workshopCount = wRes.length;
+          _ticketCount = tRes.length;
+          _openTicketCount = otRes.length;
+          _activeMatchCount = activeMatchesCount;
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching statistics: $e');
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
     }
   }
 
@@ -167,7 +212,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
           TabBar(
@@ -175,24 +220,167 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             unselectedLabelColor: Colors.grey,
             indicatorColor: primaryColor,
             tabs: const [
+              Tab(text: 'System Dashboard'),
               Tab(text: 'Support Tickets'),
               Tab(text: 'Student Feedbacks'),
             ],
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    children: [
-                      _buildTicketsList(),
-                      _buildReviewsList(),
-                    ],
-                  ),
+            child: TabBarView(
+              children: [
+                _buildStatsTab(),
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildTicketsList(),
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildReviewsList(),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildStatsTab() {
+    if (_isLoadingStats) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _fetchData();
+        await _fetchStats();
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text(
+            'System Activity Dashboard',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Real-time overview of the platform performance, engagements, and user actions.',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+
+          // Users Summary Row
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: 'Students',
+                  value: '$_studentCount',
+                  icon: Icons.school_outlined,
+                  color: Colors.orange,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  title: 'Mentors',
+                  value: '$_mentorCount',
+                  icon: Icons.supervisor_account_outlined,
+                  color: Colors.blue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Forum & Mentorship Summary
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: 'Workshops',
+                  value: '$_workshopCount',
+                  icon: Icons.event_note_outlined,
+                  color: Colors.purple,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  title: 'Active Matches',
+                  value: '$_activeMatchCount',
+                  icon: Icons.handshake_outlined,
+                  color: Colors.green,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Support Tickets Summary
+          _buildStatCard(
+            title: 'Support Tickets',
+            value: '$_openTicketCount Open / $_ticketCount Total',
+            icon: Icons.confirmation_number_outlined,
+            color: Colors.red,
+            isWide: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    bool isWide = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withAlpha(25),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildTicketsList() {
     if (_supportTickets.isEmpty) {
@@ -282,7 +470,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         border: Border.all(color: Colors.red.shade200, width: 0.5),
                       ),
                       child: Text(
-                        'Kapanan Hesap',
+                        'Closed Account',
                         style: TextStyle(
                           color: Colors.red.shade700,
                           fontSize: 8,

@@ -600,7 +600,7 @@ class _MeetingListState extends State<_MeetingList> {
                                 ),
                               ),
                               child: const Text(
-                                'Süresi Doldu',
+                                'Expired',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -672,7 +672,7 @@ class _MeetingListState extends State<_MeetingList> {
                                       ).showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            'Etkinliğe saat $timeStr itibariyle giriş yapabilirsiniz.',
+                                            'You can join the event starting at $timeStr.',
                                           ),
                                           backgroundColor: Colors.orange,
                                         ),

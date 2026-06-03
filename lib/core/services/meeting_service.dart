@@ -101,6 +101,7 @@ class MeetingService {
     final response = await _supabase
         .from('meetings')
         .select('*, mentor:mentor_id(first_name, last_name), student:student_id(first_name, last_name)')
+        .eq('is_deleted', false)
         .order('meeting_date', ascending: true);
 
     final registrations = await _supabase
@@ -175,15 +176,11 @@ class MeetingService {
     final user = CurrentSession().user;
     if (user == null) throw Exception('User not logged in');
 
-    // Manually delete participants first to avoid foreign key constraints
-    await _supabase
-        .from('workshop_participants')
-        .delete()
-        .eq('meeting_id', meetingId);
-
+    // With soft-delete, we don't need to delete participant registrations, 
+    // which preserves attendance history safely.
     await _supabase
         .from('meetings')
-        .delete()
+        .update({'is_deleted': true})
         .match({'id': meetingId, 'mentor_id': user.id});
   }
 
@@ -218,6 +215,7 @@ class MeetingService {
           .from('meetings')
           .select('*, mentor:mentor_id(first_name, last_name)')
           .eq('id', meetingId)
+          .eq('is_deleted', false)
           .single();
 
       final registrations = await _supabase

@@ -159,10 +159,9 @@ class ForumService {
           *,
           users!author_id(first_name, last_name, role, profile_image_url, is_deleted),
           forum_likes(user_id),
-          forum_comments(id),
-          forum_bookmarks(user_id),
-          forum_workshop_participants(user_id)
-        ''');
+          forum_comments(id, is_deleted)
+        ''')
+        .eq('is_deleted', false);
 
     if (category != null) {
       query = query.eq('category', category);
@@ -179,6 +178,7 @@ class ForumService {
         .from('forum_comments')
         .select('*, users!author_id(first_name, last_name, role, profile_image_url, is_deleted)')
         .eq('post_id', postId)
+        .eq('is_deleted', false)
         .order('created_at', ascending: true);
 
     return (response as List).map((json) => ForumComment.fromJson(json)).toList();
@@ -235,36 +235,6 @@ class ForumService {
     }
   }
 
-  // --- Bookmark / Unbookmark ---
-  Future<void> toggleBookmark(String postId, bool isCurrentlyBookmarked) async {
-    if (isCurrentlyBookmarked) {
-      await _supabase
-          .from('forum_bookmarks')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', _currentUserId);
-    } else {
-      await _supabase
-          .from('forum_bookmarks')
-          .insert({'post_id': postId, 'user_id': _currentUserId});
-    }
-  }
-
-  // --- Workshop Join / Leave ---
-  Future<void> toggleWorkshopParticipation(String postId, bool isCurrentlyParticipating) async {
-    if (isCurrentlyParticipating) {
-      await _supabase
-          .from('forum_workshop_participants')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', _currentUserId);
-    } else {
-      await _supabase
-          .from('forum_workshop_participants')
-          .insert({'post_id': postId, 'user_id': _currentUserId});
-    }
-  }
-
   // --- Accept Answer (Q&A) ---
   Future<void> acceptAnswer(String postId, String commentId) async {
     // 1. Mark the post as solved
@@ -282,12 +252,21 @@ class ForumService {
   }
 
   // --- Delete Post ---
-  Future<void> deletePost(String postId) async {
-    await _supabase
-        .from('forum_posts')
-        .delete()
-        .eq('id', postId)
-        .eq('author_id', _currentUserId);
+  Future<void> deletePost(String postId, {bool isAdmin = false}) async {
+    var query = _supabase.from('forum_posts').update({'is_deleted': true}).eq('id', postId);
+    if (!isAdmin) {
+      query = query.eq('author_id', _currentUserId);
+    }
+    await query;
+  }
+
+  // --- Delete Comment ---
+  Future<void> deleteComment(String commentId, {bool isAdmin = false}) async {
+    var query = _supabase.from('forum_comments').update({'is_deleted': true}).eq('id', commentId);
+    if (!isAdmin) {
+      query = query.eq('author_id', _currentUserId);
+    }
+    await query;
   }
 
   // --- Update Post ---

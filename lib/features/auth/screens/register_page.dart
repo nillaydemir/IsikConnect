@@ -135,9 +135,7 @@ class _RegisterPageState extends State<RegisterPage> {
       final phoneText = _phoneController.text.trim();
       if (phoneText.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter your phone number.'),
-          ),
+          const SnackBar(content: Text('Please enter your phone number.')),
         );
         return;
       }
@@ -162,7 +160,9 @@ class _RegisterPageState extends State<RegisterPage> {
         if (!email.endsWith('@isik.edu.tr')) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Students must register with an @isik.edu.tr email address.'),
+              content: Text(
+                'Students must register with an @isik.edu.tr email address.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -186,7 +186,9 @@ class _RegisterPageState extends State<RegisterPage> {
       if (!_kvkkApproved) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please read and approve the KVKK Consent Text to complete registration.'),
+            content: Text(
+              'Please read and approve the KVKK Consent Text to complete registration.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -202,7 +204,6 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-
       final email = _emailController.text.trim();
       final rawPassword = _passwordController.text.trim();
       final password = sha256.convert(utf8.encode(rawPassword)).toString();
@@ -249,7 +250,7 @@ class _RegisterPageState extends State<RegisterPage> {
         }
 
         if (_selectedPlatformFile == null) {
-          throw 'Please upload your student document (Öğrenci Belgesi).';
+          throw 'Please upload your student document (Student Certificate).';
         }
 
         final apiService = ApiService();
@@ -300,9 +301,15 @@ class _RegisterPageState extends State<RegisterPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Row(
           children: [
-            Icon(Icons.mark_email_unread, color: Color.fromARGB(255, 38, 55, 140)),
+            Icon(
+              Icons.mark_email_unread,
+              color: Color.fromARGB(255, 38, 55, 140),
+            ),
             SizedBox(width: 8),
-            Text('Verify Your Email', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Verify Your Email',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: const Text(
@@ -321,7 +328,10 @@ class _RegisterPageState extends State<RegisterPage> {
             },
             child: const Text(
               'OK',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Color.fromARGB(255, 38, 55, 140)),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color.fromARGB(255, 38, 55, 140),
+              ),
             ),
           ),
         ],
@@ -668,7 +678,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _selectedFileName ?? 'Upload Öğrenci Belgesi',
+                  _selectedFileName ?? 'Upload Student Certificate',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -1081,7 +1091,9 @@ class _RegisterPageState extends State<RegisterPage> {
               IconButton(
                 onPressed: value > 1 ? () => onChanged(value - 1) : null,
                 icon: const Icon(Icons.remove_circle_outline),
-                color: value > 1 ? const Color.fromARGB(255, 38, 55, 140) : Colors.grey,
+                color: value > 1
+                    ? const Color.fromARGB(255, 38, 55, 140)
+                    : Colors.grey,
               ),
               Text(
                 '$value',
@@ -1135,7 +1147,11 @@ class _RegisterPageState extends State<RegisterPage> {
                   padding: const EdgeInsets.only(top: 4.0),
                   child: RichText(
                     text: TextSpan(
-                      style: const TextStyle(color: Colors.black87, fontSize: 14, height: 1.3),
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 14,
+                        height: 1.3,
+                      ),
                       children: [
                         const TextSpan(text: 'I have read and agree to the '),
                         WidgetSpan(
@@ -1170,7 +1186,10 @@ class _RegisterPageState extends State<RegisterPage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('KVKK Consent Text', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'KVKK Consent Text',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -1198,7 +1217,13 @@ class _RegisterPageState extends State<RegisterPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Color.fromARGB(255, 38, 55, 140), fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Close',
+              style: TextStyle(
+                color: Color.fromARGB(255, 38, 55, 140),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'pending_mentors_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_reports_screen.dart';
+import '../../../jobs/screens/job_board_screen.dart';
+import '../../../shared/screens/forum_screen.dart';
 
 class AdminMainScreen extends StatefulWidget {
   const AdminMainScreen({super.key});
@@ -16,6 +18,8 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   final List<Widget> _screens = [
     const PendingMentorsScreen(),
     const AdminUsersScreen(),
+    const ForumScreen(),
+    const JobBoardScreen(),
     const AdminReportsScreen(),
   ];
 
@@ -75,6 +79,14 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.people),
               label: 'Users',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.forum),
+              label: 'Forum',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.business_center),
+              label: 'Jobs',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart),
