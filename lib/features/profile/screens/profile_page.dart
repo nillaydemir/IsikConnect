@@ -60,6 +60,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _user = widget.targetUser!;
       _resetControllers();
       _fetchReviews();
+      _fetchLastLoginForTargetUser();
     } else if (widget.targetUserId != null) {
       _fetchUserById();
     } else {
@@ -68,6 +69,45 @@ class _ProfilePageState extends State<ProfilePage> {
       _fetchReviews();
     }
     _fetchDepartmentsAndInterests();
+  }
+
+  Future<void> _fetchLastLoginForTargetUser() async {
+    if (!_isOwnProfile && CurrentSession().user?.role == 'admin') {
+      try {
+        final lastLoginRes = await Supabase.instance.client
+            .from('user_logins')
+            .select('last_sign_in_at')
+            .eq('id', _user.id)
+            .maybeSingle();
+        if (lastLoginRes != null && lastLoginRes['last_sign_in_at'] != null && mounted) {
+          setState(() {
+            _user = AppUser(
+              id: _user.id,
+              email: _user.email,
+              role: _user.role,
+              isApproved: _user.isApproved,
+              isDeleted: _user.isDeleted,
+              createdAt: _user.createdAt,
+              name: _user.name,
+              phone: _user.phone,
+              availableDays: _user.availableDays,
+              department: _user.department,
+              classLevel: _user.classLevel,
+              interests: _user.interests,
+              graduationYear: _user.graduationYear,
+              company: _user.company,
+              jobTitle: _user.jobTitle,
+              bio: _user.bio,
+              profileImageUrl: _user.profileImageUrl,
+              maxStudents: _user.maxStudents,
+              lastSignInAt: DateTime.parse(lastLoginRes['last_sign_in_at'] as String),
+            );
+          });
+        }
+      } catch (e) {
+        debugPrint('Error fetching last login: $e');
+      }
+    }
   }
 
   Future<void> _fetchDepartmentsAndInterests() async {
@@ -94,8 +134,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _fetchUserById() async {
-    setState(() => _isLoading = true);
+  Future<void> _fetchUserById({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() => _isLoading = true);
+    }
     try {
       final response = await Supabase.instance.client
           .from('users')
@@ -120,6 +162,22 @@ class _ProfilePageState extends State<ProfilePage> {
         }
       }
 
+      // Fetch last login from the user_logins view (auth.users wrapper) if the viewer is an admin
+      if (!_isOwnProfile && CurrentSession().user?.role == 'admin') {
+        try {
+          final lastLoginRes = await Supabase.instance.client
+              .from('user_logins')
+              .select('last_sign_in_at')
+              .eq('id', widget.targetUserId!)
+              .maybeSingle();
+          if (lastLoginRes != null && lastLoginRes['last_sign_in_at'] != null) {
+            mergedData['last_sign_in_at'] = lastLoginRes['last_sign_in_at'];
+          }
+        } catch (e) {
+          debugPrint('Error fetching user_logins: $e');
+        }
+      }
+
       setState(() {
         _user = AppUser.fromJson(mergedData);
         _resetControllers();
@@ -134,6 +192,22 @@ class _ProfilePageState extends State<ProfilePage> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _refreshProfile() async {
+    final List<Future> futures = [];
+    if (widget.targetUserId != null) {
+      futures.add(_fetchUserById(showLoading: false));
+    } else {
+      _user = CurrentSession().user!;
+      _resetControllers();
+      futures.add(_fetchReviews());
+    }
+    if (widget.targetUser != null) {
+      futures.add(_fetchLastLoginForTargetUser());
+    }
+    futures.add(_fetchDepartmentsAndInterests());
+    await Future.wait(futures);
   }
 
   Future<void> _fetchReviews() async {
@@ -350,10 +424,13 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator(color: primaryColor))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
+          : RefreshIndicator(
+              onRefresh: _refreshProfile,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
                   _buildHeader(primaryColor),
                   const SizedBox(height: 32),
                   _buildInfoSection(primaryColor),
@@ -377,6 +454,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ],
                 ),
               ),
+            ),
       );
     }
 
@@ -618,6 +696,16 @@ class _ProfilePageState extends State<ProfilePage> {
             value: _user.email,
             icon: Icons.email_outlined,
           ),
+          if (!_isOwnProfile && CurrentSession().user?.role == 'admin') ...[
+            const Divider(height: 32),
+            _buildReadOnlyField(
+              label: 'Last Sign In',
+              value: _user.lastSignInAt != null
+                  ? '${_user.lastSignInAt!.toLocal().day}/${_user.lastSignInAt!.toLocal().month}/${_user.lastSignInAt!.toLocal().year} ${_user.lastSignInAt!.toLocal().hour}:${_user.lastSignInAt!.toLocal().minute.toString().padLeft(2, '0')}'
+                  : 'Never',
+              icon: Icons.login_outlined,
+            ),
+          ],
           const Divider(height: 32),
           _buildField(
             label: 'Department',

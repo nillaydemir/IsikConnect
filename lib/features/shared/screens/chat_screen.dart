@@ -294,9 +294,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
+      body: RefreshIndicator(
+        onRefresh: () => _fetchConversations(showLoading: false),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
             title: const Text(
               'Chats',
               style: TextStyle(
@@ -500,6 +503,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
         ],
       ),
+    ),
     );
   }
 }
@@ -790,7 +794,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       // If we wanted to block termination, we would check getCancelledMatchCount here.
       // But logically, a user should always be able to leave a mentor they don't want, they just can't get a new one.
 
-      await MatchingService().cancelMatch(studentId, mentorId);
+      await MatchingService().cancelMatch(studentId, mentorId, myRole);
 
       // Also send a system message to the chat
       await _supabase.from('messages').insert({

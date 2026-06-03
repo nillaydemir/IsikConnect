@@ -23,7 +23,7 @@ class JobService {
     try {
       final response = await _supabase
           .from('job_postings')
-          .select('*, users:mentor_id(first_name, last_name, profile_image_url)')
+          .select('*, users:mentor_id(first_name, last_name, profile_image_url, is_approved, is_deleted)')
           .eq('is_deleted', false)
           .order('created_at', ascending: false);
 
@@ -40,7 +40,7 @@ class JobService {
     try {
       final response = await _supabase
           .from('job_postings')
-          .select('*, users:mentor_id(first_name, last_name, profile_image_url)')
+          .select('*, users:mentor_id(first_name, last_name, profile_image_url, is_approved, is_deleted)')
           .eq('mentor_id', _currentUserId)
           .eq('is_deleted', false)
           .order('created_at', ascending: false);

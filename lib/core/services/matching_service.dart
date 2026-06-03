@@ -55,13 +55,19 @@ class MatchingService {
     final periodStart = _getCurrentPeriodStart();
     final allCancelledMatches = await _supabase
         .from('matches')
-        .select('mentor_id, students(users(is_deleted))')
+        .select('mentor_id, cancelled_by, students(users(is_deleted))')
         .eq('status', 'cancelled')
         .gte('created_at', periodStart.toIso8601String());
 
     final Map<String, int> mentorCancellationCounts = {};
     for (var match in allCancelledMatches as List) {
       final mId = match['mentor_id'].toString();
+      final cancelledBy = match['cancelled_by'] as String?;
+      
+      // If explicitly cancelled by student or admin, do not count against mentor!
+      if (cancelledBy == 'student' || cancelledBy == 'admin') {
+        continue;
+      }
       
       // If student is deleted, do not count this cancellation against the mentor
       final studentsDataRaw = match['students'];
@@ -205,10 +211,11 @@ class MatchingService {
     }).eq('id', studentId);
   }
 
-  Future<void> cancelMatch(String studentId, String mentorId) async {
-    // 1. UPDATE matches SET status = 'cancelled'
+  Future<void> cancelMatch(String studentId, String mentorId, String cancelledBy) async {
+    // 1. UPDATE matches SET status = 'cancelled', cancelled_by = cancelledBy
     await _supabase.from('matches').update({
       'status': 'cancelled',
+      'cancelled_by': cancelledBy,
     }).eq('student_id', studentId).eq('mentor_id', mentorId).eq('status', 'active');
 
     // 2. UPDATE mentors SET current_student_count = current_student_count - 1
@@ -239,13 +246,18 @@ class MatchingService {
     final periodStart = _getCurrentPeriodStart();
     final response = await _supabase
         .from('matches')
-        .select('id, mentors(users(is_deleted))')
+        .select('id, cancelled_by, mentors(users(is_deleted))')
         .eq('student_id', studentId)
         .eq('status', 'cancelled')
         .gte('created_at', periodStart.toIso8601String());
         
     int count = 0;
     for (var match in response as List) {
+      final cancelledBy = match['cancelled_by'] as String?;
+      if (cancelledBy == 'mentor' || cancelledBy == 'admin') {
+        continue;
+      }
+
       final mentorsDataRaw = match['mentors'];
       if (mentorsDataRaw != null) {
         Map<String, dynamic> mentorsData;
@@ -272,13 +284,18 @@ class MatchingService {
     final periodStart = _getCurrentPeriodStart();
     final response = await _supabase
         .from('matches')
-        .select('id, students(users(is_deleted))')
+        .select('id, cancelled_by, students(users(is_deleted))')
         .eq('mentor_id', mentorId)
         .eq('status', 'cancelled')
         .gte('created_at', periodStart.toIso8601String());
         
     int count = 0;
     for (var match in response as List) {
+      final cancelledBy = match['cancelled_by'] as String?;
+      if (cancelledBy == 'student' || cancelledBy == 'admin') {
+        continue;
+      }
+
       final studentsDataRaw = match['students'];
       if (studentsDataRaw != null) {
         Map<String, dynamic> studentsData;

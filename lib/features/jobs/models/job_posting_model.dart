@@ -13,6 +13,8 @@ class JobPosting {
   final String? mentorCompany;
   final String? mentorJobTitle;
   final String? mentorProfileImageUrl;
+  final bool isMentorApproved;
+  final bool isMentorDeleted;
 
   JobPosting({
     required this.id,
@@ -27,6 +29,8 @@ class JobPosting {
     this.mentorCompany,
     this.mentorJobTitle,
     this.mentorProfileImageUrl,
+    this.isMentorApproved = true,
+    this.isMentorDeleted = false,
   });
 
   factory JobPosting.fromJson(Map<String, dynamic> json) {
@@ -36,6 +40,8 @@ class JobPosting {
     final String lastName = users?['last_name'] ?? 'User';
     final String name = '$firstName $lastName'.trim();
     final String? profileImage = users?['profile_image_url'];
+    final bool mentorIsApproved = users?['is_approved'] as bool? ?? true;
+    final bool mentorIsDeleted = users?['is_deleted'] as bool? ?? false;
 
     // Extract mentor relation data
     final mentors = json['mentors'] as Map<String, dynamic>?;
@@ -55,6 +61,8 @@ class JobPosting {
       mentorCompany: mCompany,
       mentorJobTitle: mJobTitle,
       mentorProfileImageUrl: profileImage,
+      isMentorApproved: mentorIsApproved,
+      isMentorDeleted: mentorIsDeleted,
     );
   }
 
