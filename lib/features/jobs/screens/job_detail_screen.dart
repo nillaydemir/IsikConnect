@@ -54,6 +54,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             builder: (context) => ChatDetailScreen(
               targetUser: targetUser,
               isActiveMatch: true,
+              label: 'Job',
             ),
           ),
         );

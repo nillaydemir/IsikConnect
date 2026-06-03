@@ -12,6 +12,7 @@ class ConversationItem {
   final DateTime? lastMessageTime;
   final int unreadCount;
   final bool isActiveMatch;
+  final String? label;
 
   ConversationItem({
     required this.targetUser,
@@ -19,6 +20,7 @@ class ConversationItem {
     this.lastMessageTime,
     this.unreadCount = 0,
     this.isActiveMatch = true,
+    this.label,
   });
 }
 
@@ -66,13 +68,15 @@ class _ChatScreenState extends State<ChatScreen> {
           .select()
           .or('student_id.eq.$myId,mentor_id.eq.$myId');
 
-      // 2. Extract IDs of the other users and their active status from matches
+      // 2. Extract IDs of the other users, their mentorship status, and active status from matches
+      final Set<String> mentorshipUserIds = {};
       Map<String, bool> userActiveStatus = {};
       for (var match in matchesResponse) {
         String otherId = match['student_id'] == myId
             ? match['mentor_id']
             : match['student_id'];
         bool isActive = match['status'] == 'active';
+        mentorshipUserIds.add(otherId);
 
         if (userActiveStatus.containsKey(otherId)) {
           userActiveStatus[otherId] = userActiveStatus[otherId]! || isActive;
@@ -81,32 +85,37 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
 
-      // Query accepted job applications to count them as active
+      // Query job applications to determine active status and identify job-related conversations
+      final Set<String> jobUserIds = {};
       try {
         final role = CurrentSession().user?.role;
         if (role == 'student') {
           final studentJobApps = await _supabase
               .from('job_applications')
-              .select('id, job_postings(mentor_id)')
-              .eq('student_id', myId)
-              .eq('status', 'accepted');
+              .select('status, job_postings(mentor_id)')
+              .eq('student_id', myId);
           for (var app in studentJobApps) {
             final job = app['job_postings'] as Map<String, dynamic>?;
             if (job != null && job['mentor_id'] != null) {
               final mentorId = job['mentor_id'].toString();
-              userActiveStatus[mentorId] = true;
+              jobUserIds.add(mentorId);
+              if (app['status'] == 'accepted') {
+                userActiveStatus[mentorId] = true;
+              }
             }
           }
         } else if (role == 'mentor') {
           final mentorJobApps = await _supabase
               .from('job_applications')
-              .select('student_id, job_postings(mentor_id)')
-              .eq('status', 'accepted');
+              .select('student_id, status, job_postings(mentor_id)');
           for (var app in mentorJobApps) {
             final job = app['job_postings'] as Map<String, dynamic>?;
             if (job != null && job['mentor_id'] == myId) {
               final studentId = app['student_id'].toString();
-              userActiveStatus[studentId] = true;
+              jobUserIds.add(studentId);
+              if (app['status'] == 'accepted') {
+                userActiveStatus[studentId] = true;
+              }
             }
           }
         }
@@ -211,6 +220,26 @@ class _ChatScreenState extends State<ChatScreen> {
           // If cancelled match and no messages, skip
           if (!isActive && lastMsg == null) continue;
 
+          final myRole = CurrentSession().user?.role;
+          String? label;
+          if (user.role == 'admin') {
+            label = 'Support';
+          } else if (jobUserIds.contains(user.id)) {
+            label = 'Job';
+          } else if (mentorshipUserIds.contains(user.id)) {
+            if (myRole == 'mentor') {
+              label = 'Mentee';
+            } else if (myRole == 'student') {
+              label = 'Mentor';
+            }
+          } else {
+            if (user.role == 'mentor') {
+              label = 'Mentor';
+            } else if (user.role == 'student') {
+              label = 'Mentee';
+            }
+          }
+
           convos.add(
             ConversationItem(
               targetUser: user,
@@ -218,6 +247,7 @@ class _ChatScreenState extends State<ChatScreen> {
               lastMessageTime: lastMsgTime,
               unreadCount: unreadCount,
               isActiveMatch: isActive,
+              label: label,
             ),
           );
         } catch (e) {
@@ -351,12 +381,53 @@ class _ChatScreenState extends State<ChatScreen> {
                               )
                             : null),
                   ),
-                  title: Text(
-                    displayName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          displayName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (!isAdminChat && convo.label != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: convo.label == 'Job'
+                                ? Colors.teal.shade50
+                                : (convo.label == 'Mentee' || convo.label == 'Mentor')
+                                    ? Colors.blue.shade50
+                                    : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: convo.label == 'Job'
+                                  ? Colors.teal.shade200
+                                  : (convo.label == 'Mentee' || convo.label == 'Mentor')
+                                      ? Colors.blue.shade200
+                                      : Colors.grey.shade300,
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Text(
+                            convo.label!,
+                            style: TextStyle(
+                              color: convo.label == 'Job'
+                                  ? Colors.teal.shade800
+                                  : (convo.label == 'Mentee' || convo.label == 'Mentor')
+                                      ? Colors.blue.shade800
+                                      : Colors.grey.shade700,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   subtitle: Text(
                     convo.lastMessage ?? 'Tap to start conversation',
@@ -417,6 +488,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         builder: (context) => ChatDetailScreen(
                           targetUser: targetUser,
                           isActiveMatch: convo.isActiveMatch,
+                          label: convo.label,
                         ),
                       ),
                     ).then((_) {
@@ -435,10 +507,12 @@ class _ChatScreenState extends State<ChatScreen> {
 class ChatDetailScreen extends StatefulWidget {
   final AppUser targetUser;
   final bool isActiveMatch;
+  final String? label;
   const ChatDetailScreen({
     super.key,
     required this.targetUser,
     this.isActiveMatch = true,
+    this.label,
   });
 
   @override
@@ -835,14 +909,55 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                displayName,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                  fontSize: 16,
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        fontSize: 16,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!isAdminChat && widget.label != null) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: widget.label == 'Job'
+                            ? Colors.teal.shade50
+                            : (widget.label == 'Mentee' || widget.label == 'Mentor')
+                                ? Colors.blue.shade50
+                                : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: widget.label == 'Job'
+                              ? Colors.teal.shade200
+                              : (widget.label == 'Mentee' || widget.label == 'Mentor')
+                                  ? Colors.blue.shade200
+                                  : Colors.grey.shade300,
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        widget.label!,
+                        style: TextStyle(
+                          color: widget.label == 'Job'
+                              ? Colors.teal.shade800
+                              : (widget.label == 'Mentee' || widget.label == 'Mentor')
+                                  ? Colors.blue.shade800
+                                  : Colors.grey.shade700,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],

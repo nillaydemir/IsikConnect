@@ -147,34 +147,84 @@ const createSupportTicket = async (req, res) => {
 };
 
 const changePassword = async (req, res) => {
-  const { newPassword } = req.body;
+  const { currentPassword, newPassword } = req.body;
   const userId = req.user.id;
 
-  if (!newPassword) {
-    return res.status(400).json({ error: 'New password is required' });
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current password and new password are required' });
   }
 
   try {
-    // 1. Update in Supabase Auth using Admin API
-    const { data: authData, error: authError } = await supabase.auth.admin.updateUserById(userId, {
-      password: newPassword
-    });
+    // 0. Fetch user to verify current password
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('role, password, email')
+      .eq('id', userId)
+      .maybeSingle();
 
-    if (authError) {
-      console.error('Supabase Auth Update Error:', authError);
-      return res.status(400).json({ error: authError.message });
+    if (userError || !user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // 2. Also update in custom users table (bcrypt hashed)
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    let isMatch = false;
+    if (user.role === 'admin') {
+      isMatch = (currentPassword === user.password);
+    } else {
+      if (user.password) {
+        try {
+          isMatch = await bcrypt.compare(currentPassword, user.password);
+        } catch (e) {
+          console.warn('Bcrypt compare error:', e.message);
+        }
+      }
+      
+      if (!isMatch) {
+        // Fallback to Supabase Auth verification
+        try {
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: user.email,
+            password: currentPassword
+          });
+          if (!authError && authData.user) {
+            isMatch = true;
+          }
+        } catch (e) {
+          console.warn('Supabase Auth sign-in verification failed:', e.message);
+        }
+      }
+    }
 
-    const { error } = await supabase
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Incorrect current password' });
+    }
+
+    // 1. Update in Supabase Auth using Admin API (skip if admin)
+    if (user.role !== 'admin') {
+      const { data: authData, error: authError } = await supabase.auth.admin.updateUserById(userId, {
+        password: newPassword
+      });
+
+      if (authError) {
+        console.error('Supabase Auth Update Error:', authError);
+        return res.status(400).json({ error: authError.message });
+      }
+    }
+
+    // 2. Also update in custom users table
+    let newDbPassword;
+    if (user.role === 'admin') {
+      newDbPassword = newPassword;
+    } else {
+      const salt = await bcrypt.genSalt(10);
+      newDbPassword = await bcrypt.hash(newPassword, salt);
+    }
+
+    const { error: updateError } = await supabase
       .from('users')
-      .update({ password: hashedPassword })
+      .update({ password: newDbPassword })
       .eq('id', userId);
 
-    if (error) throw error;
+    if (updateError) throw updateError;
 
     res.json({ message: 'Password updated successfully' });
   } catch (error) {

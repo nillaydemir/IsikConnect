@@ -99,30 +99,6 @@ class _LoginPageState extends State<LoginPage> {
                       return;
                     }
 
-                    // --- ADMIN CHECK via DB ---
-                    if (email == 'admin@isikconnect.edu.tr') {
-                      try {
-                        setState(() => _isLoading = true);
-                        final adminResponse = await Supabase.instance.client
-                            .from('users')
-                            .select()
-                            .eq('email', email)
-                            .eq('role', 'admin')
-                            .maybeSingle();
-
-                        if (adminResponse != null) {
-                          CurrentSession().user = AppUser.fromJson(adminResponse);
-                          if (!context.mounted) return;
-                          Navigator.pushReplacementNamed(context, '/admin');
-                          return;
-                        }
-                      } catch (e) {
-                        // Fall through to regular login if admin not found in DB
-                      } finally {
-                        if (mounted) setState(() => _isLoading = false);
-                      }
-                    }
-                    // --------------------------
 
                     final password = sha256.convert(utf8.encode(rawPassword)).toString();
 

@@ -203,12 +203,16 @@ class ApiService {
     }
   }
 
-  Future<void> updatePassword(String newPassword) async {
-    final hashedPassword = sha256.convert(utf8.encode(newPassword)).toString();
+  Future<void> updatePassword(String currentPassword, String newPassword) async {
+    final hashedCurrent = sha256.convert(utf8.encode(currentPassword)).toString();
+    final hashedNew = sha256.convert(utf8.encode(newPassword)).toString();
     final response = await http.post(
       Uri.parse('$baseUrl/account/change-password'),
       headers: _authHeaders,
-      body: jsonEncode({'newPassword': hashedPassword}),
+      body: jsonEncode({
+        'currentPassword': hashedCurrent,
+        'newPassword': hashedNew,
+      }),
     );
     if (response.statusCode != 200) {
       Map<String, dynamic> errorBody = {};

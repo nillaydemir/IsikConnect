@@ -1039,6 +1039,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                                     name: _matchedMentor!.name,
                                     createdAt: DateTime.now(),
                                   ),
+                                  label: 'Mentor',
                                 ),
                               ),
                             );

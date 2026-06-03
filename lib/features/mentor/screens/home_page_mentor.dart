@@ -404,6 +404,7 @@ class _HomeTabState extends State<_HomeTab> {
                         name: '${userData['first_name']} ${userData['last_name']}',
                         createdAt: DateTime.now(),
                       ),
+                      label: 'Mentee',
                     ),
                   ),
                 );
