@@ -140,7 +140,7 @@ class _PostCardState extends State<PostCard> {
                                     border: Border.all(color: Colors.red.shade200, width: 0.5),
                                   ),
                                   child: Text(
-                                    'Kapanan Hesap',
+                                    'Closed Account',
                                     style: TextStyle(
                                       color: Colors.red.shade700,
                                       fontSize: 10,

@@ -105,9 +105,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             *,
             users!author_id(first_name, last_name, role, profile_image_url, is_deleted),
             forum_likes(user_id),
-            forum_comments(id),
-            forum_bookmarks(user_id),
-            forum_workshop_participants(user_id)
+            forum_comments(id)
           ''')
           .eq('id', _currentPost.id)
           .single();

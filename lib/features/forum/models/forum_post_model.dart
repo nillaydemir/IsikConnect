@@ -66,12 +66,8 @@ class ForumPost {
     // Handle counts and relations
     final likesList = (json['forum_likes'] as List?) ?? [];
     final commentsList = (json['forum_comments'] as List?) ?? [];
-    final bookmarksList = (json['forum_bookmarks'] as List?) ?? [];
-    final participantsList = (json['forum_workshop_participants'] as List?) ?? [];
 
     bool likedByMe = likesList.any((like) => like['user_id'] == currentUserId);
-    bool bookmarkedByMe = bookmarksList.any((bm) => bm['user_id'] == currentUserId);
-    bool participating = participantsList.any((p) => p['user_id'] == currentUserId);
 
     return ForumPost(
       id: json['id'],
@@ -93,10 +89,10 @@ class ForumPost {
       isAuthorDeleted: isDeleted,
       likeCount: likesList.length,
       commentCount: commentsList.where((c) => (c as Map<String, dynamic>)['is_deleted'] != true).length,
-      participantCount: participantsList.length,
+      participantCount: 0,
       isLikedByMe: likedByMe,
-      isBookmarkedByMe: bookmarkedByMe,
-      isParticipating: participating,
+      isBookmarkedByMe: false,
+      isParticipating: false,
     );
   }
 }
