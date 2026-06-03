@@ -270,7 +270,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               const CircularProgressIndicator(color: Colors.white),
               const SizedBox(height: 20),
               const Text(
-                'Yeniden bağlanılıyor...',
+                'Reconnecting...',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -279,14 +279,14 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Lütfen bekleyin',
+                'Please wait',
                 style: TextStyle(color: Colors.white54, fontSize: 14),
               ),
             ] else ...[
               const Icon(Icons.wifi_off, color: Colors.white54, size: 72),
               const SizedBox(height: 20),
               const Text(
-                'Bağlantı Kesildi',
+                'Connection Lost',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 22,
@@ -295,7 +295,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'İnternet bağlantınızı kontrol edin\nve toplantıya tekrar katılın.',
+                'Check your internet connection\nand rejoin the meeting.',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
@@ -304,7 +304,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                 onPressed: _rejoin,
                 icon: const Icon(Icons.refresh),
                 label: const Text(
-                  'Yeniden Katıl',
+                  'Rejoin',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(

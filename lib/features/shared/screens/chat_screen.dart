@@ -323,7 +323,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 final targetUser = convo.targetUser;
 
                 final isAdminChat = targetUser.role == 'admin';
-                final displayName = isAdminChat ? 'IşıkConnect Destek' : (targetUser.name ?? 'Unknown User');
+                final displayName = isAdminChat ? 'IşıkConnect Support' : (targetUser.name ?? 'Unknown User');
 
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(
@@ -570,7 +570,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Future<void> _showEndMentorshipDialog() async {
     final myRole = CurrentSession().user!.role;
-    String warningMessage = '${widget.targetUser.name} ile olan eşleşmenizi bitirmek istediğinize emin misiniz? Bu işlem geri alınamaz.';
+    String warningMessage = 'Are you sure you want to end your mentorship with ${widget.targetUser.name}? This action cannot be undone.';
     
     if (myRole == 'student') {
       try {
@@ -578,14 +578,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         final remainingRights = 2 - cancelledCount;
         
         if (remainingRights > 1) {
-          warningMessage += '\n\nEğer iptal ederseniz, bu eğitim dönemi (Eylül itibarıyla) için $remainingRights yeni eşleşme hakkınız kalacak.';
+          warningMessage += '\n\nIf you cancel, you will have $remainingRights matching rights remaining for this academic year (starting September).';
         } else if (remainingRights == 1) {
-          warningMessage += '\n\nDİKKAT: Bu son iptal hakkınız! Eğer iptal ederseniz, bir sonraki Eylül ayına kadar yeni bir mentorle eşleşemeyeceksiniz.';
+          warningMessage += '\n\nWARNING: This is your last cancellation right! If you cancel this match, you will NOT be able to match with a new mentor until September.';
         } else {
-          warningMessage += '\n\nDİKKAT: Yeni eşleşme hakkınız kalmadı! Eğer iptal ederseniz, bir sonraki Eylül ayına kadar yeni bir mentorle eşleşemeyeceksiniz.';
+          warningMessage += '\n\nWARNING: You have 0 matching rights left! If you cancel this match, you will NOT be able to match with a new mentor until September.';
         }
       } catch (e) {
-        debugPrint('Kalan haklar alınırken hata oluştu: $e');
+        debugPrint('Error fetching remaining rights: $e');
       }
     } else if (myRole == 'mentor') {
       try {
@@ -603,15 +603,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         final remainingRights = limit - cancelledCount;
 
         if (remainingRights > 1) {
-          warningMessage += '\n\nEğer iptal ederseniz, bu eğitim dönemi (Eylül itibarıyla) için $remainingRights yeni eşleşme iptal hakkınız kalacak.';
+          warningMessage += '\n\nIf you cancel, you will have $remainingRights matching cancellation rights remaining for this academic year (starting September).';
         } else if (remainingRights == 1) {
-          warningMessage += '\n\nDİKKAT: Bu son iptal hakkınız! Eğer iptal ederseniz, bir sonraki Eylül ayına kadar yeni öğrenci ataması alamayacaksınız.';
+          warningMessage += '\n\nWARNING: This is your last cancellation right! If you cancel this match, you will NOT be able to receive new student assignments until September.';
         } else {
-          warningMessage += '\n\nDİKKAT: İptal limitinizi doldurdunuz! Eğer iptal ederseniz, bir sonraki Eylül ayına kadar sistem size yeni öğrenci eşleştirmeyecektir.';
+          warningMessage += '\n\nWARNING: You have reached your cancellation limit! If you cancel this match, the system will NOT match you with a new student until September.';
         }
       } catch (e) {
-        debugPrint('Mentor limit hesaplanırken hata oluştu: $e');
-        warningMessage += '\n\nNot: Bu eğitim dönemi için iptal limitiniz kapasitenizin 2 katıdır.';
+        debugPrint('Error calculating mentor limit: $e');
+        warningMessage += '\n\nNote: Your cancellation limit for this academic year is twice your maximum capacity.';
       }
     }
 
@@ -620,12 +620,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eşleşmeyi Bitir'),
+        title: const Text('End Mentorship'),
         content: Text(warningMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
@@ -633,7 +633,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               await _endMentorship();
             },
             child: const Text(
-              'Eşleşmeyi Bitir',
+              'End Mentorship',
               style: TextStyle(color: Colors.red),
             ),
           ),
@@ -646,14 +646,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sohbeti Sil'),
+        title: const Text('Delete Chat'),
         content: const Text(
-          'Bu sohbeti tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm mesaj geçmişi silinir.',
+          'Are you sure you want to delete this chat? This action cannot be undone and all message history will be deleted.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
@@ -661,7 +661,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               await _deleteChat();
             },
             child: const Text(
-              'Sohbeti Sil',
+              'Delete Chat',
               style: TextStyle(color: Colors.red),
             ),
           ),
@@ -689,7 +689,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sohbet başarıyla silindi.')),
+          const SnackBar(content: Text('Chat deleted successfully.')),
         );
       }
     } catch (e) {
@@ -697,7 +697,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Sohbet silinirken bir hata oluştu.'),
+            content: Text('An error occurred while deleting the chat.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -723,14 +723,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         'sender_id': _myId,
         'receiver_id': widget.targetUser.id,
         'content':
-            'Eşleşme ${myRole == 'mentor' ? 'mentor' : 'öğrenci'} tarafından sonlandırıldı.',
+            'Mentorship ended by ${myRole == 'mentor' ? 'mentor' : 'student'}.',
         'is_read': false,
       });
 
       if (mounted) {
         Navigator.pop(context); // Go back to chats list
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Eşleşme başarıyla sonlandırıldı.')),
+          const SnackBar(content: Text('Mentorship ended successfully.')),
         );
       }
     } catch (e) {
@@ -738,7 +738,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Eşleşme sonlandırılırken bir hata oluştu.'),
+            content: Text('An error occurred while ending the mentorship.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -751,7 +751,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Eşleşme sonlandırıldığı veya kullanıcı silindiği için mesaj gönderemezsiniz.'),
+            content: Text('You cannot send messages because the match has been terminated or the user has been deleted.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -805,7 +805,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget build(BuildContext context) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
     final isAdminChat = widget.targetUser.role == 'admin';
-    final displayName = isAdminChat ? 'IşıkConnect Destek' : (widget.targetUser.name ?? 'Unknown User');
+    final displayName = isAdminChat ? 'IşıkConnect Support' : (widget.targetUser.name ?? 'Unknown User');
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -865,7 +865,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 const PopupMenuItem(
                   value: 'end_mentorship',
                   child: Text(
-                    'Mentorluğu Bitir',
+                    'End Mentorship',
                     style: TextStyle(color: Colors.red),
                   ),
                 )
@@ -873,7 +873,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 const PopupMenuItem(
                   value: 'delete_chat',
                   child: Text(
-                    'Sohbeti Sil',
+                    'Delete Chat',
                     style: TextStyle(color: Colors.red),
                   ),
                 ),
@@ -990,10 +990,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 top: false,
                 child: Text(
                   isAdminChat
-                      ? 'Bu destek mesajıdır. Yanıt veremezsiniz.'
+                      ? 'This is a support message. You cannot reply.'
                       : _isTargetUserDeleted
-                          ? 'Bu kullanıcı hesabını sildi. Artık mesaj gönderemezsiniz.'
-                          : 'Bu eşleşme sonlandırıldı. Artık mesaj gönderemezsiniz.',
+                          ? 'This user has deleted their account. You can no longer send messages.'
+                          : 'This mentorship match has been terminated. You can no longer send messages.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.black54,

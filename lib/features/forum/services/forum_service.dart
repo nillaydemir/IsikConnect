@@ -159,9 +159,7 @@ class ForumService {
           *,
           users!author_id(first_name, last_name, role, profile_image_url, is_deleted),
           forum_likes(user_id),
-          forum_comments(id, is_deleted),
-          forum_bookmarks(user_id),
-          forum_workshop_participants(user_id)
+          forum_comments(id, is_deleted)
         ''')
         .eq('is_deleted', false);
 
@@ -234,36 +232,6 @@ class ForumService {
       }
     } catch (e) {
       debugPrint('Toggle like error: $e');
-    }
-  }
-
-  // --- Bookmark / Unbookmark ---
-  Future<void> toggleBookmark(String postId, bool isCurrentlyBookmarked) async {
-    if (isCurrentlyBookmarked) {
-      await _supabase
-          .from('forum_bookmarks')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', _currentUserId);
-    } else {
-      await _supabase
-          .from('forum_bookmarks')
-          .insert({'post_id': postId, 'user_id': _currentUserId});
-    }
-  }
-
-  // --- Workshop Join / Leave ---
-  Future<void> toggleWorkshopParticipation(String postId, bool isCurrentlyParticipating) async {
-    if (isCurrentlyParticipating) {
-      await _supabase
-          .from('forum_workshop_participants')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', _currentUserId);
-    } else {
-      await _supabase
-          .from('forum_workshop_participants')
-          .insert({'post_id': postId, 'user_id': _currentUserId});
     }
   }
 
