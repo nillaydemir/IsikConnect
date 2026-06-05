@@ -5,9 +5,10 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const { registerMentor, loginMentor, uploadDoc } = require('../controllers/mentorController');
+const { protect, restrictTo } = require('../middlewares/authMiddleware');
 
 router.post('/register', upload.single('file'), registerMentor);
 router.post('/login', loginMentor);
-router.post('/upload-doc', upload.single('document'), uploadDoc);
+router.post('/upload-doc', protect, restrictTo('mentor', 'admin'), upload.single('document'), uploadDoc);
 
 module.exports = router;

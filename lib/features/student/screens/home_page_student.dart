@@ -25,7 +25,8 @@ class HomePageStudent extends StatefulWidget {
 class _HomePageStudentState extends State<HomePageStudent> {
   int _selectedIndex = 0;
   final GlobalKey<_HomeTabState> _homeTabKey = GlobalKey<_HomeTabState>();
-  final GlobalKey<MeetingsScreenState> _meetingsTabKey = GlobalKey<MeetingsScreenState>();
+  final GlobalKey<MeetingsScreenState> _meetingsTabKey =
+      GlobalKey<MeetingsScreenState>();
 
   late final List<Widget> _pages;
 
@@ -91,11 +92,21 @@ class _HomePageStudentState extends State<HomePageStudent> {
                       top: 12,
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
                         child: Text(
                           '$count',
-                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -132,10 +143,19 @@ class _HomePageStudentState extends State<HomePageStudent> {
           unselectedItemColor: Colors.grey.shade400,
           backgroundColor: Colors.white,
           elevation: 0,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.normal,
+            fontSize: 12,
+          ),
           items: [
-            BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_filled),
+              label: 'Home',
+            ),
             BottomNavigationBarItem(
               icon: StreamBuilder<int>(
                 stream: MessageService().getUnreadCountStream(),
@@ -150,11 +170,21 @@ class _HomePageStudentState extends State<HomePageStudent> {
                           top: 0,
                           child: Container(
                             padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                            constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 14,
+                              minHeight: 14,
+                            ),
                             child: Text(
                               '$count',
-                              style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -165,10 +195,22 @@ class _HomePageStudentState extends State<HomePageStudent> {
               ),
               label: 'Chat',
             ),
-            BottomNavigationBarItem(icon: Icon(Icons.business_center_rounded), label: 'Jobs'),
-            BottomNavigationBarItem(icon: Icon(Icons.forum_rounded), label: 'Forum'),
-            BottomNavigationBarItem(icon: Icon(Icons.videocam_rounded), label: 'Meetings'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.business_center_rounded),
+              label: 'Jobs',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.forum_rounded),
+              label: 'Forum',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.videocam_rounded),
+              label: 'Meetings',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_rounded),
+              label: 'Profile',
+            ),
           ],
         ),
       ),
@@ -203,16 +245,16 @@ class _HomeTabState extends State<_HomeTab> {
       final user = CurrentSession().user;
       final meetings = await MeetingService().getMeetings();
       final now = DateTime.now();
-      
+
       setState(() {
         _upcomingSessions = meetings.where((m) {
           if (m['meeting_date'] == null) return false;
           final date = DateTime.parse(m['meeting_date']);
           if (date.isBefore(now)) return false;
-          
+
           final isRegisteredWorkshop = m['is_registered'] == true;
           final isOneOnOne = m['student_id'] == user?.id;
-          
+
           return isRegisteredWorkshop || isOneOnOne;
         }).toList();
 
@@ -220,7 +262,7 @@ class _HomeTabState extends State<_HomeTab> {
           if (m['meeting_date'] == null) return false;
           final date = DateTime.parse(m['meeting_date']);
           if (date.isBefore(now)) return false;
-          
+
           final isRegisteredWorkshop = m['is_registered'] == true;
           return m['meeting_type'] == 'Workshop' && !isRegisteredWorkshop;
         }).toList();
@@ -246,10 +288,7 @@ class _HomeTabState extends State<_HomeTab> {
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Center(
-        child: Text(
-          title,
-          style: const TextStyle(color: Colors.grey),
-        ),
+        child: Text(title, style: const TextStyle(color: Colors.grey)),
       ),
     );
   }
@@ -264,7 +303,8 @@ class _HomeTabState extends State<_HomeTab> {
         final meeting = _upcomingSessions[index];
         final isWorkshop = meeting['meeting_type'] == 'Workshop';
         final date = DateTime.parse(meeting['meeting_date']).toLocal();
-        final dateStr = '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+        final dateStr =
+            '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
 
         return Card(
           elevation: 0,
@@ -275,12 +315,19 @@ class _HomeTabState extends State<_HomeTab> {
             side: BorderSide(color: Colors.grey.shade200),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
             leading: CircleAvatar(
-              backgroundColor: isWorkshop ? Colors.orange.shade50 : Colors.blue.shade50,
+              backgroundColor: isWorkshop
+                  ? Colors.orange.shade50
+                  : Colors.blue.shade50,
               child: Icon(
                 isWorkshop ? Icons.group : Icons.person,
-                color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
+                color: isWorkshop
+                    ? Colors.orange.shade700
+                    : Colors.blue.shade700,
               ),
             ),
             title: Text(
@@ -300,7 +347,9 @@ class _HomeTabState extends State<_HomeTab> {
               child: Text(
                 meeting['meeting_type'] ?? '',
                 style: TextStyle(
-                  color: isWorkshop ? Colors.orange.shade700 : Colors.blue.shade700,
+                  color: isWorkshop
+                      ? Colors.orange.shade700
+                      : Colors.blue.shade700,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -319,8 +368,11 @@ class _HomeTabState extends State<_HomeTab> {
     final userName = user?.name?.split(' ').first ?? 'Student';
     final profileImageUrl = user?.profileImageUrl;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
+    return RefreshIndicator(
+      onRefresh: _fetchData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -331,32 +383,45 @@ class _HomeTabState extends State<_HomeTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Good Morning,',
+                    'Welcome,',
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   Text(
                     userName,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
                 ],
               ),
               CircleAvatar(
                 radius: 24,
                 backgroundColor: primaryColor.withValues(alpha: 0.1),
-                backgroundImage: profileImageUrl != null ? NetworkImage(profileImageUrl) : null,
-                child: profileImageUrl == null 
-                  ? Text(
-                      userName.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 20),
-                    )
-                  : null,
+                backgroundImage: profileImageUrl != null
+                    ? NetworkImage(profileImageUrl)
+                    : null,
+                child: profileImageUrl == null
+                    ? Text(
+                        userName.substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                          fontSize: 20,
+                        ),
+                      )
+                    : null,
               ),
             ],
           ),
           const SizedBox(height: 32),
-          
+
           // Upcoming Sessions
-          const Text('Upcoming Sessions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            'Upcoming Sessions',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
@@ -366,17 +431,20 @@ class _HomeTabState extends State<_HomeTab> {
             _buildUpcomingSessionsList(),
 
           const SizedBox(height: 32),
-          
+
           // My Mentor Section embedded
-          const Text('My Mentor', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          const SizedBox(
-            height: 400, // Constrain height for the embedded widget
-            child: _MyMentorTab(),
+          const Text(
+            'My Mentor',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          
+          const SizedBox(height: 16),
+          const _MyMentorTab(),
+
           const SizedBox(height: 32),
-          const Text('Recommended Workshops', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            'Recommended Workshops',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
@@ -390,9 +458,12 @@ class _HomeTabState extends State<_HomeTab> {
                 itemCount: _workshops.length,
                 itemBuilder: (context, index) {
                   final workshop = _workshops[index];
-                  final date = DateTime.parse(workshop['meeting_date']).toLocal();
-                  final dateStr = '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-                  
+                  final date = DateTime.parse(
+                    workshop['meeting_date'],
+                  ).toLocal();
+                  final dateStr =
+                      '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+
                   return Container(
                     width: 240,
                     margin: const EdgeInsets.only(right: 16),
@@ -402,7 +473,11 @@ class _HomeTabState extends State<_HomeTab> {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.grey.shade200),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
                       ],
                     ),
                     child: Column(
@@ -414,17 +489,30 @@ class _HomeTabState extends State<_HomeTab> {
                             color: Colors.orange.shade50,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(Icons.lightbulb_outline, color: Colors.orange.shade700, size: 20),
+                          child: Icon(
+                            Icons.lightbulb_outline,
+                            color: Colors.orange.shade700,
+                            size: 20,
+                          ),
                         ),
                         const Spacer(),
                         Text(
-                          workshop['title'] ?? 'Workshop', 
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), 
-                          maxLines: 1, 
-                          overflow: TextOverflow.ellipsis
+                          workshop['title'] ?? 'Workshop',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Text(dateStr, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                        Text(
+                          dateStr,
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -433,6 +521,7 @@ class _HomeTabState extends State<_HomeTab> {
             ),
         ],
       ),
+    ),
     );
   }
 }
@@ -456,7 +545,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
   void initState() {
     super.initState();
     _loadCurrentStudentAndMatch();
-    
+
     final user = CurrentSession().user;
     if (user != null) {
       _studentSubscription = Supabase.instance.client
@@ -464,28 +553,30 @@ class _MyMentorTabState extends State<_MyMentorTab> {
           .stream(primaryKey: ['id'])
           .eq('id', user.id)
           .listen((data) {
-        if (data.isNotEmpty) {
-           final studentData = data.first;
-           if (studentData['matched_mentor_id'] == null && _matchedMentor != null) {
-             // Match was cancelled
-             if (mounted) {
-               setState(() {
-                 _matchedMentor = null;
-               });
-             }
-             MatchingService().getCancelledMatchCount(user.id).then((count) {
-               if (mounted) {
-                 setState(() {
-                   _cancelledCount = count;
-                 });
-               }
-             });
-           } else if (studentData['matched_mentor_id'] != null && _matchedMentor == null) {
-             // New match found
-             _fetchExistingMatch();
-           }
-        }
-      });
+            if (data.isNotEmpty) {
+              final studentData = data.first;
+              if (studentData['matched_mentor_id'] == null &&
+                  _matchedMentor != null) {
+                // Match was cancelled
+                if (mounted) {
+                  setState(() {
+                    _matchedMentor = null;
+                  });
+                }
+                MatchingService().getCancelledMatchCount(user.id).then((count) {
+                  if (mounted) {
+                    setState(() {
+                      _cancelledCount = count;
+                    });
+                  }
+                });
+              } else if (studentData['matched_mentor_id'] != null &&
+                  _matchedMentor == null) {
+                // New match found
+                _fetchExistingMatch();
+              }
+            }
+          });
     }
   }
 
@@ -507,10 +598,10 @@ class _MyMentorTabState extends State<_MyMentorTab> {
         requestedTopics: user.interests ?? [],
         availableDays: user.availableDays ?? [],
       );
-      
+
       // Fetch persistent match from database
       await _fetchExistingMatch();
-      
+
       // Fetch cancelled count
       _cancelledCount = await MatchingService().getCancelledMatchCount(user.id);
       if (mounted) setState(() {});
@@ -519,7 +610,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
 
   Future<void> _fetchExistingMatch() async {
     if (_currentStudent == null) return;
-    
+
     setState(() {
       _isLoading = true;
     });
@@ -531,7 +622,9 @@ class _MyMentorTabState extends State<_MyMentorTab> {
           .eq('id', _currentStudent!.id)
           .maybeSingle();
 
-      if (response != null && response['matched_mentor_id'] != null && response['mentors'] != null) {
+      if (response != null &&
+          response['matched_mentor_id'] != null &&
+          response['mentors'] != null) {
         final mentorData = response['mentors'];
         final userData = mentorData['users'];
         final mentorId = mentorData['id'];
@@ -544,9 +637,12 @@ class _MyMentorTabState extends State<_MyMentorTab> {
               .from('reviews')
               .select('rating')
               .eq('mentor_id', mentorId);
-          
+
           if (reviewsRes.isNotEmpty) {
-            final sum = reviewsRes.fold<num>(0, (prev, r) => prev + (r['rating'] as num));
+            final sum = reviewsRes.fold<num>(
+              0,
+              (prev, r) => prev + (r['rating'] as num),
+            );
             avgRating = sum / reviewsRes.length;
             reviewCount = reviewsRes.length;
           }
@@ -593,12 +689,20 @@ class _MyMentorTabState extends State<_MyMentorTab> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: const Text('Rate Your Mentor', style: TextStyle(fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Rate Your Mentor',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('How was your experience with ${_matchedMentor!.name}?', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+              Text(
+                'How was your experience with ${_matchedMentor!.name}?',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -607,7 +711,9 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     icon: Icon(
-                      index < selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      index < selectedRating
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
                       color: Colors.amber,
                       size: 40,
                     ),
@@ -626,7 +732,9 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                 decoration: InputDecoration(
                   hintText: 'Share your feedback (optional)',
                   hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   filled: true,
                   fillColor: Colors.grey[50],
                   contentPadding: const EdgeInsets.all(12),
@@ -654,14 +762,20 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Thank you for your feedback!'), backgroundColor: Colors.green),
+                      const SnackBar(
+                        content: Text('Thank you for your feedback!'),
+                        backgroundColor: Colors.green,
+                      ),
                     );
                     _fetchExistingMatch(); // Refresh to update rating in UI
                   }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error saving review: $e'), backgroundColor: Colors.red),
+                      SnackBar(
+                        content: Text('Error saving review: $e'),
+                        backgroundColor: Colors.red,
+                      ),
                     );
                   }
                 }
@@ -669,7 +783,9 @@ class _MyMentorTabState extends State<_MyMentorTab> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 38, 55, 140),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text('Submit'),
             ),
@@ -689,7 +805,8 @@ class _MyMentorTabState extends State<_MyMentorTab> {
 
     if (_cancelledCount >= 2) {
       setState(() {
-        _errorMessage = "You have used all your matching rights for this academic year.";
+        _errorMessage =
+            "You have used all your matching rights for this academic year.";
       });
       return;
     }
@@ -701,19 +818,25 @@ class _MyMentorTabState extends State<_MyMentorTab> {
 
     try {
       final matchingService = MatchingService();
-      final bestMentor = await matchingService.findAndSaveMatch(_currentStudent!);
+      final bestMentor = await matchingService.findAndSaveMatch(
+        _currentStudent!,
+      );
 
       setState(() {
         _matchedMentor = bestMentor;
         if (_matchedMentor == null) {
-          _errorMessage = "No suitable mentor found right now. Please check your interests or available days and try again later.";
+          _errorMessage =
+              "No suitable mentor found right now. Please check your interests or available days and try again later.";
         }
       });
     } catch (e) {
-      String userFriendlyMessage = 'An unexpected error occurred while finding a mentor. Please try again later.';
+      String userFriendlyMessage =
+          'An unexpected error occurred while finding a mentor. Please try again later.';
       final errStr = e.toString();
-      if (errStr.contains('unique_active_student_match') || errStr.contains('23505')) {
-        userFriendlyMessage = 'You already have an active mentorship match. Please refresh the page.';
+      if (errStr.contains('unique_active_student_match') ||
+          errStr.contains('23505')) {
+        userFriendlyMessage =
+            'You already have an active mentorship match. Please refresh the page.';
       }
       setState(() {
         _errorMessage = userFriendlyMessage;
@@ -730,13 +853,17 @@ class _MyMentorTabState extends State<_MyMentorTab> {
     if (_currentStudent == null || _matchedMentor == null) return;
 
     final remainingRights = 2 - _cancelledCount;
-    String contentText = 'Are you sure you want to end your mentorship with ${_matchedMentor!.name}?';
+    String contentText =
+        'Are you sure you want to end your mentorship with ${_matchedMentor!.name}?';
     if (remainingRights > 1) {
-      contentText += '\n\nYou have $remainingRights matching rights left for this academic year.';
+      contentText +=
+          '\n\nYou have $remainingRights matching rights left for this academic year.';
     } else if (remainingRights == 1) {
-      contentText += '\n\nWARNING: This is your last cancellation right! If you cancel this match, you will NOT be able to match with a new mentor again until September.';
+      contentText +=
+          '\n\nWARNING: This is your last cancellation right! If you cancel this match, you will NOT be able to match with a new mentor again until September.';
     } else {
-      contentText += '\n\nWARNING: You have 0 matching rights left! If you cancel this match, you will NOT be able to match with a new mentor again until September.';
+      contentText +=
+          '\n\nWARNING: You have 0 matching rights left! If you cancel this match, you will NOT be able to match with a new mentor again until September.';
     }
 
     final confirm = await showDialog<bool>(
@@ -745,7 +872,10 @@ class _MyMentorTabState extends State<_MyMentorTab> {
         title: const Text('Cancel Match'),
         content: Text(contentText),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -763,10 +893,16 @@ class _MyMentorTabState extends State<_MyMentorTab> {
 
     try {
       final matchingService = MatchingService();
-      await matchingService.cancelMatch(_currentStudent!.id, _matchedMentor!.id);
-      
-      final updatedCount = await matchingService.getCancelledMatchCount(_currentStudent!.id);
-      
+      await matchingService.cancelMatch(
+        _currentStudent!.id,
+        _matchedMentor!.id,
+        'student',
+      );
+
+      final updatedCount = await matchingService.getCancelledMatchCount(
+        _currentStudent!.id,
+      );
+
       setState(() {
         _matchedMentor = null;
         _errorMessage = "Match cancelled successfully.";
@@ -824,7 +960,10 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                   padding: const EdgeInsets.only(top: 16.0),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -839,12 +978,18 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.red.shade700),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.red.shade700,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'You have used all your matching rights for this academic year. You cannot match with a new mentor until September.',
-                          style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -870,14 +1015,8 @@ class _MyMentorTabState extends State<_MyMentorTab> {
       );
     }
 
-    return SingleChildScrollView(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            elevation: 0,
+    return Card(
+      elevation: 0,
             color: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -893,9 +1032,8 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ProfilePage(
-                            targetUserId: _matchedMentor!.id,
-                          ),
+                          builder: (context) =>
+                              ProfilePage(targetUserId: _matchedMentor!.id),
                         ),
                       );
                     },
@@ -903,18 +1041,26 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                       children: [
                         CircleAvatar(
                           radius: 30,
-                          backgroundColor: const Color.fromARGB(255, 38, 55, 140).withValues(alpha: 0.1),
-                          backgroundImage: _matchedMentor!.profileImageUrl != null ? NetworkImage(_matchedMentor!.profileImageUrl!) : null,
+                          backgroundColor: const Color.fromARGB(
+                            255,
+                            38,
+                            55,
+                            140,
+                          ).withValues(alpha: 0.1),
+                          backgroundImage:
+                              _matchedMentor!.profileImageUrl != null
+                              ? NetworkImage(_matchedMentor!.profileImageUrl!)
+                              : null,
                           child: _matchedMentor!.profileImageUrl == null
-                            ? Text(
-                                _matchedMentor!.name.substring(0, 1),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color.fromARGB(255, 38, 55, 140),
-                                ),
-                              )
-                            : null,
+                              ? Text(
+                                  _matchedMentor!.name.substring(0, 1),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color.fromARGB(255, 38, 55, 140),
+                                  ),
+                                )
+                              : null,
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -933,28 +1079,47 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                               const SizedBox(height: 4),
                               Text(
                                 '${_matchedMentor!.jobTitle ?? 'Mentor'} at ${_matchedMentor!.company ?? ''}',
-                                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               if (_matchedMentor!.reviewCount > 0)
                                 Row(
                                   children: [
-                                    const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      color: Colors.amber,
+                                      size: 18,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      _matchedMentor!.avgRating.toStringAsFixed(1),
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      _matchedMentor!.avgRating.toStringAsFixed(
+                                        1,
+                                      ),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                     Text(
                                       ' (${_matchedMentor!.reviewCount} reviews)',
-                                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ],
                                 )
                               else
                                 Text(
                                   'New Mentor',
-                                  style: TextStyle(color: Colors.blue.shade600, fontSize: 12, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    color: Colors.blue.shade600,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                             ],
                           ),
@@ -971,9 +1136,16 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                               value: 'cancel',
                               child: Row(
                                 children: [
-                                  Icon(Icons.cancel, color: Colors.red, size: 20),
+                                  Icon(
+                                    Icons.cancel,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
                                   SizedBox(width: 8),
-                                  Text('End Mentorship', style: TextStyle(color: Colors.red)),
+                                  Text(
+                                    'End Mentorship',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1002,9 +1174,9 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _matchedMentor!.skills.map((skill) {
-                      bool isMatch = _currentStudent?.requestedTopics.contains(
-                        skill,
-                      ) ?? false;
+                      bool isMatch =
+                          _currentStudent?.requestedTopics.contains(skill) ??
+                          false;
                       return Chip(
                         label: Text(skill),
                         backgroundColor: isMatch
@@ -1043,17 +1215,30 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                                     name: _matchedMentor!.name,
                                     createdAt: DateTime.now(),
                                   ),
+                                  label: 'Mentor',
                                 ),
                               ),
                             );
                           },
                           icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                          label: const Text('Chat', style: TextStyle(fontSize: 12)),
+                          label: const Text(
+                            'Chat',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color.fromARGB(255, 38, 55, 140),
-                            side: const BorderSide(color: Color.fromARGB(255, 38, 55, 140)),
+                            foregroundColor: const Color.fromARGB(
+                              255,
+                              38,
+                              55,
+                              140,
+                            ),
+                            side: const BorderSide(
+                              color: Color.fromARGB(255, 38, 55, 140),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -1062,12 +1247,17 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                         child: OutlinedButton.icon(
                           onPressed: _showRatingDialog,
                           icon: const Icon(Icons.star_outline, size: 18),
-                          label: const Text('Rate', style: TextStyle(fontSize: 12)),
+                          label: const Text(
+                            'Rate',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.amber.shade800,
                             side: BorderSide(color: Colors.amber.shade800),
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -1085,12 +1275,22 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                             );
                           },
                           icon: const Icon(Icons.person_outline, size: 18),
-                          label: const Text('Profile', style: TextStyle(fontSize: 12)),
+                          label: const Text(
+                            'Profile',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(255, 38, 55, 140),
+                            backgroundColor: const Color.fromARGB(
+                              255,
+                              38,
+                              55,
+                              140,
+                            ),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -1099,10 +1299,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          );
   }
 
   Widget _buildBadgeWidget(String badge) {
@@ -1154,5 +1351,3 @@ class _MyMentorTabState extends State<_MyMentorTab> {
     );
   }
 }
-
-

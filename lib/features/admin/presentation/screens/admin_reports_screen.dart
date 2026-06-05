@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/current_session.dart';
+import '../../../../core/services/matching_service.dart';
 
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
@@ -22,6 +23,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   int _ticketCount = 0;
   int _openTicketCount = 0;
   int _activeMatchCount = 0;
+  List<Map<String, dynamic>> _activeMatches = [];
   bool _isLoadingStats = true;
 
   @override
@@ -66,10 +68,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       final otRes = await _supabase.from('support_tickets').select('id').not('status', 'eq', 'resolved');
       
       int activeMatchesCount = 0;
+      List<Map<String, dynamic>> activeMatchesList = [];
       try {
-        final amtRes = await _supabase.from('matches').select('id').eq('status', 'active');
-        activeMatchesCount = amtRes.length;
-      } catch (_) {}
+        final amtRes = await _supabase
+            .from('matches')
+            .select('id, mentor_id, student_id, mentors(users(first_name, last_name, email, profile_image_url)), students(users(first_name, last_name, email, profile_image_url))')
+            .eq('status', 'active');
+        activeMatchesList = List<Map<String, dynamic>>.from(amtRes);
+        activeMatchesCount = activeMatchesList.length;
+      } catch (e) {
+        debugPrint('Error fetching active matches list: $e');
+      }
 
       if (mounted) {
         setState(() {
@@ -79,6 +88,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           _ticketCount = tRes.length;
           _openTicketCount = otRes.length;
           _activeMatchCount = activeMatchesCount;
+          _activeMatches = activeMatchesList;
           _isLoadingStats = false;
         });
       }
@@ -133,7 +143,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     }
   }
 
-  void _showMessageUserDialog(String targetUserId, String targetUserName) {
+  void _showMessageUserDialog(String targetUserId, String targetUserName, [String? originalMessage]) {
     final TextEditingController messageController = TextEditingController();
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
 
@@ -178,11 +188,15 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
               Navigator.pop(ctx);
 
+              final finalContent = (originalMessage != null && originalMessage.trim().isNotEmpty)
+                  ? 'Replying to: "${originalMessage.trim()}"\n\n$text'
+                  : text;
+
               try {
                 await _supabase.from('messages').insert({
                   'sender_id': adminId,
                   'receiver_id': targetUserId,
-                  'content': text,
+                  'content': finalContent,
                   'is_read': false,
                 });
                 if (mounted) {
@@ -323,6 +337,35 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             color: Colors.red,
             isWide: true,
           ),
+          const SizedBox(height: 24),
+          const Divider(height: 1, thickness: 1),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Active Pairings',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 38, 55, 140).withAlpha(25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_activeMatches.length} Pairs',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color.fromARGB(255, 38, 55, 140),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildActivePairingsList(),
         ],
       ),
     );
@@ -384,12 +427,22 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
   Widget _buildTicketsList() {
     if (_supportTickets.isEmpty) {
-      return const Center(child: Text('No support tickets found'));
+      return RefreshIndicator(
+        onRefresh: _fetchData,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 100),
+            Center(child: Text('No support tickets found')),
+          ],
+        ),
+      );
     }
 
     return RefreshIndicator(
       onRefresh: _fetchData,
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: _supportTickets.length,
         itemBuilder: (context, index) {
@@ -540,7 +593,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                             ),
                             onPressed: (targetUserId == null || isUserDeleted)
                                 ? null
-                                : () => _showMessageUserDialog(targetUserId, userName),
+                                : () => _showMessageUserDialog(targetUserId, userName, ticket['message'] as String?),
                           ),
                           TextButton.icon(
                             icon: Icon(
@@ -574,68 +627,295 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
   Widget _buildReviewsList() {
     if (_reviews.isEmpty) {
-      return const Center(child: Text('No feedbacks found'));
+      return RefreshIndicator(
+        onRefresh: _fetchData,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 100),
+            Center(child: Text('No feedbacks found')),
+          ],
+        ),
+      );
     }
 
+    return RefreshIndicator(
+      onRefresh: _fetchData,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: _reviews.length,
+        itemBuilder: (context, index) {
+          final review = _reviews[index];
+
+          String mentorName = 'Unknown';
+          try {
+            final mUser = review['mentor']['users'];
+            mentorName = '${mUser['first_name']} ${mUser['last_name']}';
+          } catch (_) {}
+
+          String studentName = 'Unknown';
+          try {
+            final sUser = review['student']['users'];
+            studentName = '${sUser['first_name']} ${sUser['last_name']}';
+          } catch (_) {}
+
+          final rating = review['rating'] as int;
+          final date = DateTime.parse(review['created_at']).toLocal();
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('To: $mentorName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        '${date.day}/${date.month}/${date.year}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text('From: $studentName', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: List.generate(
+                      5,
+                      (i) => Icon(
+                        Icons.star_rounded,
+                        size: 16,
+                        color: i < rating ? Colors.amber : Colors.grey[200],
+                      ),
+                    ),
+                  ),
+                  if (review['comment'] != null && review['comment'].isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      review['comment'],
+                      style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showEndPairingDialog(
+      String studentId, String mentorId, String studentName, String mentorName) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('End Mentorship Pairing', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to end the pairing between student "$studentName" and mentor "$mentorName"? This will set the match status to cancelled.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('End Pairing', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await MatchingService().cancelMatch(studentId, mentorId, 'admin');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Pairing ended successfully.'), backgroundColor: Colors.green),
+          );
+        }
+        await _fetchStats();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error ending pairing: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Widget _buildActivePairingsList() {
+    if (_activeMatches.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(Icons.handshake_outlined, size: 48, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Text(
+                'No active pairings at the moment.',
+                style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    const primaryColor = Color.fromARGB(255, 38, 55, 140);
+
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _reviews.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _activeMatches.length,
       itemBuilder: (context, index) {
-        final review = _reviews[index];
+        final match = _activeMatches[index];
+        final studentId = match['student_id'] as String? ?? '';
+        final mentorId = match['mentor_id'] as String? ?? '';
 
-        String mentorName = 'Unknown';
-        try {
-          final mUser = review['mentor']['users'];
-          mentorName = '${mUser['first_name']} ${mUser['last_name']}';
-        } catch (_) {}
+        final mentorData = match['mentors'] as Map<String, dynamic>?;
+        final mentorUser = mentorData != null ? mentorData['users'] as Map<String, dynamic>? : null;
+        final mentorName = mentorUser != null ? '${mentorUser['first_name']} ${mentorUser['last_name']}' : 'Unknown Mentor';
+        final mentorEmail = mentorUser != null ? mentorUser['email'] ?? '' : '';
+        final mentorPhoto = mentorUser != null ? mentorUser['profile_image_url'] as String? : null;
 
-        String studentName = 'Unknown';
-        try {
-          final sUser = review['student']['users'];
-          studentName = '${sUser['first_name']} ${sUser['last_name']}';
-        } catch (_) {}
-
-        final rating = review['rating'] as int;
-        final date = DateTime.parse(review['created_at']).toLocal();
+        final studentData = match['students'] as Map<String, dynamic>?;
+        final studentUser = studentData != null ? studentData['users'] as Map<String, dynamic>? : null;
+        final studentName = studentUser != null ? '${studentUser['first_name']} ${studentUser['last_name']}' : 'Unknown Student';
+        final studentEmail = studentUser != null ? studentUser['email'] ?? '' : '';
+        final studentPhoto = studentUser != null ? studentUser['profile_image_url'] as String? : null;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('To: $mentorName', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                      '${date.day}/${date.month}/${date.year}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                // Student Info
+                Expanded(
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.orange.withAlpha(25),
+                        backgroundImage: studentPhoto != null ? NetworkImage(studentPhoto) : null,
+                        child: studentPhoto == null
+                            ? Text(
+                                studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
+                                style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Student',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade700),
+                            ),
+                            Text(
+                              studentName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              studentEmail,
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Link Indicator
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Icon(Icons.swap_horiz_rounded, color: primaryColor.withAlpha(120), size: 24),
+                ),
+
+                // Mentor Info
+                Expanded(
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.blue.withAlpha(25),
+                        backgroundImage: mentorPhoto != null ? NetworkImage(mentorPhoto) : null,
+                        child: mentorPhoto == null
+                            ? Text(
+                                mentorName.isNotEmpty ? mentorName[0].toUpperCase() : 'M',
+                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Mentor',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
+                            ),
+                            Text(
+                              mentorName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              mentorEmail,
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Actions Menu
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.grey, size: 20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onSelected: (value) {
+                    if (value == 'end_pairing') {
+                      _showEndPairingDialog(studentId, mentorId, studentName, mentorName);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'end_pairing',
+                      child: ListTile(
+                        leading: Icon(Icons.link_off, color: Colors.red, size: 18),
+                        title: Text('End Pairing', style: TextStyle(color: Colors.red, fontSize: 13)),
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text('From: $studentName', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                const SizedBox(height: 8),
-                Row(
-                  children: List.generate(
-                    5,
-                    (i) => Icon(
-                      Icons.star_rounded,
-                      size: 16,
-                      color: i < rating ? Colors.amber : Colors.grey[200],
-                    ),
-                  ),
-                ),
-                if (review['comment'] != null && review['comment'].isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    review['comment'],
-                    style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic),
-                  ),
-                ],
               ],
             ),
           ),

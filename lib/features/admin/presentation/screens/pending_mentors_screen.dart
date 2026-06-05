@@ -52,15 +52,25 @@ class _PendingMentorsScreenState extends State<PendingMentorsScreen> {
         }
 
         if (provider.pendingApplications.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.check_circle_outline, color: Colors.green, size: 64),
-                SizedBox(height: 16),
-                Text(
-                  'Great! No pending approvals.',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.black87),
+          return RefreshIndicator(
+            color: const Color.fromARGB(255, 38, 55, 140),
+            onRefresh: () => provider.loadPendingApplications(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline, color: Colors.green, size: 64),
+                      SizedBox(height: 16),
+                      Text(
+                        'Great! No pending approvals.',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.black87),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

@@ -83,7 +83,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           final mentorId = match['mentor_id'] as String;
           await _supabase
               .from('matches')
-              .update({'status': 'cancelled'})
+              .update({'status': 'cancelled', 'cancelled_by': 'admin'})
               .eq('id', match['id']);
 
           final mentorRes = await _supabase
@@ -115,7 +115,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           final studentId = match['student_id'] as String;
           await _supabase
               .from('matches')
-              .update({'status': 'cancelled'})
+              .update({'status': 'cancelled', 'cancelled_by': 'admin'})
               .eq('id', match['id']);
 
           await _supabase
@@ -214,15 +214,25 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _filteredUsers.isEmpty
-                  ? Center(
-                      child: Text(
-                        _allUsers.isEmpty ? 'No users found' : 'No users match your search',
-                        style: TextStyle(color: Colors.grey.shade500),
+                  ? RefreshIndicator(
+                      onRefresh: _fetchUsers,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                          Center(
+                            child: Text(
+                              _allUsers.isEmpty ? 'No users found' : 'No users match your search',
+                              style: TextStyle(color: Colors.grey.shade500),
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   : RefreshIndicator(
                       onRefresh: _fetchUsers,
                       child: ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         itemCount: _filteredUsers.length,
                         itemBuilder: (context, index) {
                           final user = _filteredUsers[index];

@@ -582,6 +582,28 @@ class _MeetingListState extends State<_MeetingList> {
                             ],
                           ),
                         ],
+                        if (isWorkshop && isHost) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _showRegisteredStudentsDialog(
+                                meetingIdStr,
+                                meeting['title'] ?? 'Workshop',
+                              ),
+                              icon: const Icon(Icons.people_outline, size: 18),
+                              label: const Text('View Registered Students'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: primaryColor,
+                                side: const BorderSide(color: primaryColor, width: 1.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         if (isJoinBlocked)
                           SizedBox(
@@ -806,6 +828,106 @@ class _MeetingListState extends State<_MeetingList> {
                 );
               },
             ),
+    );
+  }
+
+  Future<void> _showRegisteredStudentsDialog(String meetingId, String meetingTitle) async {
+    showDialog(
+      context: context,
+      builder: (ctx) => _RegisteredStudentsDialog(meetingId: meetingId, meetingTitle: meetingTitle),
+    );
+  }
+}
+
+class _RegisteredStudentsDialog extends StatefulWidget {
+  final String meetingId;
+  final String meetingTitle;
+
+  const _RegisteredStudentsDialog({
+    required this.meetingId,
+    required this.meetingTitle,
+  });
+
+  @override
+  State<_RegisteredStudentsDialog> createState() => _RegisteredStudentsDialogState();
+}
+
+class _RegisteredStudentsDialogState extends State<_RegisteredStudentsDialog> {
+  bool _loading = true;
+  List<Map<String, dynamic>> _students = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRegisteredStudents();
+  }
+
+  Future<void> _fetchRegisteredStudents() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('workshop_participants')
+          .select('student_id, users(first_name, last_name, email)')
+          .eq('meeting_id', widget.meetingId);
+
+      if (mounted) {
+        setState(() {
+          _students = List<Map<String, dynamic>>.from(response);
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading participants: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        'Registered Students\n"${widget.meetingTitle}"',
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 300,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _students.isEmpty
+                ? const Center(child: Text('No students registered yet.'))
+                : ListView.builder(
+                    itemCount: _students.length,
+                    itemBuilder: (ctx, index) {
+                      final item = _students[index];
+                      final userData = item['users'] as Map<String, dynamic>? ?? {};
+                      final name = '${userData['first_name'] ?? ''} ${userData['last_name'] ?? ''}'.trim();
+                      final email = userData['email'] ?? '';
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue.shade50,
+                          child: const Icon(Icons.person, color: Color.fromARGB(255, 38, 55, 140)),
+                        ),
+                        title: Text(name.isNotEmpty ? name : 'Student', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(email, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      );
+                    },
+                  ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 }

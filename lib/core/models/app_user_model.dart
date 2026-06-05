@@ -17,6 +17,7 @@ class AppUser {
   final String? bio;
   final String? profileImageUrl;
   final int? maxStudents;
+  final DateTime? lastSignInAt;
   final String? badge;
 
   AppUser({
@@ -38,6 +39,7 @@ class AppUser {
     this.bio,
     this.profileImageUrl,
     this.maxStudents,
+    this.lastSignInAt,
     this.badge,
   });
 
@@ -64,6 +66,7 @@ class AppUser {
       bio: json['bio'] as String?,
       profileImageUrl: json['profile_image_url'] as String?,
       maxStudents: json['max_students'] as int?,
+      lastSignInAt: json['last_sign_in_at'] != null ? DateTime.parse(json['last_sign_in_at'] as String) : null,
       badge: json['badge'] as String?,
     );
   }
@@ -88,6 +91,7 @@ class AppUser {
       if (bio != null) 'bio': bio,
       if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
       if (maxStudents != null) 'max_students': maxStudents,
+      if (lastSignInAt != null) 'last_sign_in_at': lastSignInAt!.toIso8601String(),
       if (badge != null) 'badge': badge,
     };
   }

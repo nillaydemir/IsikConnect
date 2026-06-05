@@ -12,7 +12,7 @@ const protect = async (req, res, next) => {
 
       const { data: user, error } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email')
+        .select('id, first_name, last_name, email, role')
         .eq('id', decoded.id)
         .maybeSingle();
 
@@ -31,4 +31,13 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden: You do not have permission to perform this action' });
+    }
+    next();
+  };
+};
+
+module.exports = { protect, restrictTo };

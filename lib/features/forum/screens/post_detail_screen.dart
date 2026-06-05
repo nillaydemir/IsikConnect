@@ -342,9 +342,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
+            child: RefreshIndicator(
+              onRefresh: _refreshPost,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
+                children: [
                 // Author info
                 Row(
                   children: [
@@ -859,6 +862,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               ],
             ),
           ),
+        ),
           
           // Comment Input Box
           Container(
