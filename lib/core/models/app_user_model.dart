@@ -18,6 +18,7 @@ class AppUser {
   final String? profileImageUrl;
   final int? maxStudents;
   final DateTime? lastSignInAt;
+  final String? badge;
 
   AppUser({
     required this.id,
@@ -39,6 +40,7 @@ class AppUser {
     this.profileImageUrl,
     this.maxStudents,
     this.lastSignInAt,
+    this.badge,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -65,6 +67,7 @@ class AppUser {
       profileImageUrl: json['profile_image_url'] as String?,
       maxStudents: json['max_students'] as int?,
       lastSignInAt: json['last_sign_in_at'] != null ? DateTime.parse(json['last_sign_in_at'] as String) : null,
+      badge: json['badge'] as String?,
     );
   }
 
@@ -89,6 +92,7 @@ class AppUser {
       if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
       if (maxStudents != null) 'max_students': maxStudents,
       if (lastSignInAt != null) 'last_sign_in_at': lastSignInAt!.toIso8601String(),
+      if (badge != null) 'badge': badge,
     };
   }
 }

@@ -36,6 +36,16 @@ class MeetingService {
     } catch (e) {
       debugPrint('Error saving joined meetings: $e');
     }
+
+    try {
+      await Supabase.instance.client
+          .from('meetings')
+          .update({'attended': true})
+          .eq('id', meetingId);
+      debugPrint('Successfully marked meeting $meetingId as attended in database.');
+    } catch (e) {
+      debugPrint('Error marking meeting as attended in database: $e');
+    }
   }
 
   static bool hasJoinedMeeting(String meetingId) {

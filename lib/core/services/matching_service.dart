@@ -156,6 +156,7 @@ class MatchingService {
         availableDays: List<String>.from(mentorData['available_days'] ?? []),
         avgRating: avgRating,
         reviewCount: reviewCount,
+        badge: mentorData['badge']?.toString() ?? '🌱 New Mentor',
       ));
     }
 
