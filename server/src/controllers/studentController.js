@@ -228,6 +228,66 @@ const loginStudent = async (req, res) => {
   }
 };
 
+const calculateAndUpdateMentorBadge = async (mentor_id) => {
+  // Fetch all reviews for this mentor
+  const { data: reviews, error: reviewsError } = await supabase
+    .from('reviews')
+    .select('student_id, rating')
+    .eq('mentor_id', mentor_id);
+
+  if (reviewsError) {
+    throw new Error(`Error fetching reviews: ${reviewsError.message}`);
+  }
+
+  // Fetch completed, attended, non-deleted 1-on-1 meetings for this mentor
+  const { data: meetings, error: meetingsError } = await supabase
+    .from('meetings')
+    .select('student_id')
+    .eq('mentor_id', mentor_id)
+    .eq('meeting_type', '1-on-1')
+    .eq('is_deleted', false)
+    .eq('attended', true)
+    .lt('meeting_date', new Date().toISOString());
+
+  if (meetingsError) {
+    throw new Error(`Error fetching meetings: ${meetingsError.message}`);
+  }
+
+  // Filter reviews: only include student_id that has at least one completed, attended meeting
+  const attendedStudentIds = new Set(meetings.map(m => m.student_id));
+  const validReviews = reviews.filter(r => attendedStudentIds.has(r.student_id));
+
+  const totalRatings = validReviews.length;
+  let avgRating = 0.0;
+  if (totalRatings > 0) {
+    const sum = validReviews.reduce((acc, r) => acc + r.rating, 0);
+    avgRating = sum / totalRatings;
+  }
+
+  // Apply Badge Rules:
+  // 🌱 New Mentor: Total ratings < 5
+  // ⭐ Trusted Mentor: Total ratings >= 5, average rating between 4.0 and 4.49 (inclusive)
+  // 👑 Top Mentor: Total ratings >= 10, average rating >= 4.5
+  let badge = '🌱 New Mentor';
+  if (totalRatings >= 10 && avgRating >= 4.5) {
+    badge = '👑 Top Mentor';
+  } else if (totalRatings >= 5 && avgRating >= 4.0) {
+    badge = '⭐ Trusted Mentor';
+  }
+
+  // Update the badge in the mentors table
+  const { error: updateError } = await supabase
+    .from('mentors')
+    .update({ badge })
+    .eq('id', mentor_id);
+
+  if (updateError) {
+    throw new Error(`Error updating mentor badge: ${updateError.message}`);
+  }
+
+  return { badge, totalRatings, avgRating };
+};
+
 const rateMentor = async (req, res) => {
   const { mentor_id, rating, comment } = req.body;
 
@@ -261,6 +321,14 @@ const rateMentor = async (req, res) => {
       return res.status(500).json({ message: "Error saving review", error: error.message });
     }
 
+    // Recalculate badge for the mentor
+    try {
+      const result = await calculateAndUpdateMentorBadge(mentor_id);
+      console.log(`Recalculated badge for mentor ${mentor_id}:`, result);
+    } catch (calcError) {
+      console.error(`Warning: Failed to recalculate mentor badge for ${mentor_id}:`, calcError);
+    }
+
     res.status(200).json({ message: "Review saved successfully." });
   } catch (error) {
     console.error("Rate mentor error:", error);
@@ -271,5 +339,6 @@ const rateMentor = async (req, res) => {
 module.exports = {
   registerStudent,
   loginStudent,
-  rateMentor
+  rateMentor,
+  calculateAndUpdateMentorBadge
 };

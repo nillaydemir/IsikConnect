@@ -559,6 +559,10 @@ class _ProfilePageState extends State<ProfilePage> {
           _user.role.toUpperCase(),
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600], letterSpacing: 1.2),
         ),
+        if (_user.role == 'mentor') ...[
+          const SizedBox(height: 8),
+          _buildBadgeWidget(_user.badge ?? '🌱 New Mentor'),
+        ],
         if (_user.role == 'mentor' && _reviews.isNotEmpty) ...[
           const SizedBox(height: 8),
           Row(
@@ -1069,6 +1073,39 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBadgeWidget(String badge) {
+    Color bgColor;
+    Color textColor;
+    
+    if (badge.contains('👑')) {
+      bgColor = Colors.amber.shade50;
+      textColor = Colors.amber.shade900;
+    } else if (badge.contains('⭐')) {
+      bgColor = Colors.blue.shade50;
+      textColor = Colors.blue.shade900;
+    } else {
+      bgColor = Colors.green.shade50;
+      textColor = Colors.green.shade900;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: textColor.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Text(
+        badge,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          color: textColor,
+        ),
+      ),
     );
   }
 }
