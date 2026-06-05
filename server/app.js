@@ -6,6 +6,10 @@ const adminRoutes = require('./src/routes/adminRoutes');
 const studentRoutes = require('./src/routes/studentRoutes');
 const profileRoutes = require('./src/routes/profileRoutes');
 const accountRoutes = require('./src/routes/accountRoutes');
+const matchingRoutes = require('./src/routes/matchingRoutes');
+const meetingRoutes = require('./src/routes/meetingRoutes');
+const jobRoutes = require('./src/routes/jobRoutes');
+const forumRoutes = require('./src/routes/forumRoutes');
 
 const app = express();
 
@@ -19,6 +23,10 @@ app.use('/admin', adminRoutes);
 app.use('/student', studentRoutes);
 app.use('/profile', profileRoutes);
 app.use('/account', accountRoutes);
+app.use('/matching', matchingRoutes);
+app.use('/meetings', meetingRoutes);
+app.use('/jobs', jobRoutes);
+app.use('/forum', forumRoutes);
 
 app.get('/', (req, res) => {
   res.send('IsikConnect API is running...');

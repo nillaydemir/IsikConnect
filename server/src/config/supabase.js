@@ -18,4 +18,16 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   }
 });
 
+const getAdminClient = () => {
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    }
+  });
+};
+
+supabase.getAdminClient = getAdminClient;
+
 module.exports = supabase;

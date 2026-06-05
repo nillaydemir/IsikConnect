@@ -1,12 +1,10 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'current_session.dart';
+import 'api_service.dart';
 
 class MeetingService {
-  final _supabase = Supabase.instance.client;
-
   static final Set<String> _joinedMeetingIds = {};
   static bool _isLoaded = false;
 
@@ -38,10 +36,7 @@ class MeetingService {
     }
 
     try {
-      await Supabase.instance.client
-          .from('meetings')
-          .update({'attended': true})
-          .eq('id', meetingId);
+      await ApiService().joinMeeting(meetingId);
       debugPrint('Successfully marked meeting $meetingId as attended in database.');
     } catch (e) {
       debugPrint('Error marking meeting as attended in database: $e');
@@ -71,127 +66,48 @@ class MeetingService {
       time.minute,
     ).toUtc();
 
-    await _supabase.from('meetings').insert({
-      'title': title,
-      'meeting_type': type,
-      'meeting_date': meetingDate.toIso8601String(),
-      'mentor_id': user.id,
-      'student_id': studentId,
-      'capacity': capacity,
-    });
+    await ApiService().createMeeting(
+      title: title,
+      type: type,
+      meetingDate: meetingDate.toIso8601String(),
+      studentId: studentId,
+      capacity: capacity,
+    );
   }
 
   Future<List<Map<String, dynamic>>> getMentees() async {
     final user = CurrentSession().user;
     if (user == null) return [];
 
-    final response = await _supabase
-        .from('students')
-        .select('*, users(*)')
-        .eq('matched_mentor_id', user.id);
-
-    if (response.isEmpty) return [];
-
-    final List<dynamic> data = response;
-    return data.map((mentee) {
-      final userData = mentee['users'] as Map<String, dynamic>? ?? {};
-      return <String, dynamic>{
-        'id': mentee['id'].toString(),
-        'first_name': userData['first_name']?.toString() ?? 'Mentee',
-        'last_name': userData['last_name']?.toString() ?? '',
-        'email': userData['email']?.toString() ?? '',
-      };
-    }).toList();
+    return await ApiService().getMentees();
   }
 
   Future<List<Map<String, dynamic>>> getMeetings() async {
     final user = CurrentSession().user;
     if (user == null) return [];
 
-    final response = await _supabase
-        .from('meetings')
-        .select('*, mentor:mentor_id(first_name, last_name), student:student_id(first_name, last_name)')
-        .eq('is_deleted', false)
-        .order('meeting_date', ascending: true);
-
-    final registrations = await _supabase
-        .from('workshop_participants')
-        .select('meeting_id')
-        .eq('student_id', user.id);
-
-    final Set<String> registeredMeetingIds = registrations.map((r) => r['meeting_id'].toString()).toSet();
-
-    final List<dynamic> data = response;
-    return data.map((meeting) {
-      final Map<String, dynamic> meetingMap = Map<String, dynamic>.from(meeting);
-      meetingMap['is_registered'] = registeredMeetingIds.contains(meeting['id'].toString());
-      return meetingMap;
-    }).toList();
+    return await ApiService().getMeetings();
   }
 
   Future<void> registerForWorkshop(String meetingId) async {
     final user = CurrentSession().user;
     if (user == null) throw Exception('User not logged in');
 
-    // 1. Fetch meeting capacity
-    final meetingResponse = await _supabase
-        .from('meetings')
-        .select('capacity')
-        .eq('id', meetingId)
-        .single();
-    
-    final int? capacity = meetingResponse['capacity'];
-
-    // 2. Fetch current participant count and check duplicate
-    final existingResponse = await _supabase
-        .from('workshop_participants')
-        .select('meeting_id')
-        .eq('meeting_id', meetingId)
-        .eq('student_id', user.id);
-        
-    if (existingResponse.isNotEmpty) {
-      throw Exception('You are already registered for this workshop.');
-    }
-
-    if (capacity != null && capacity > 0) {
-      final countResponse = await _supabase
-          .from('workshop_participants')
-          .select('meeting_id')
-          .eq('meeting_id', meetingId);
-      
-      final currentCount = (countResponse as List).length;
-      if (currentCount >= capacity) {
-        throw Exception('This workshop has reached its maximum capacity.');
-      }
-    }
-
-    // 3. Register
-    await _supabase.from('workshop_participants').insert({
-      'meeting_id': meetingId,
-      'student_id': user.id,
-    });
+    await ApiService().registerForWorkshop(meetingId);
   }
 
   Future<void> unregisterFromWorkshop(String meetingId) async {
     final user = CurrentSession().user;
     if (user == null) throw Exception('User not logged in');
 
-    await _supabase
-        .from('workshop_participants')
-        .delete()
-        .match({'meeting_id': meetingId, 'student_id': user.id});
+    await ApiService().unregisterFromWorkshop(meetingId);
   }
 
   Future<void> deleteMeeting(String meetingId) async {
     final user = CurrentSession().user;
     if (user == null) throw Exception('User not logged in');
 
-    // With soft-delete, we don't need to delete participant registrations, 
-    // which preserves attendance history safely.
-    await _supabase
-        .from('meetings')
-        .update({'is_deleted': true})
-        .match({'id': meetingId, 'mentor_id': user.id});
+    await ApiService().deleteMeeting(meetingId);
   }
 
   Future<void> updateMeeting(String meetingId, DateTime date, TimeOfDay time) async {
@@ -210,10 +126,7 @@ class MeetingService {
       throw Exception('Cannot schedule a meeting in the past.');
     }
 
-    await _supabase
-        .from('meetings')
-        .update({'meeting_date': meetingDate.toUtc().toIso8601String()})
-        .match({'id': meetingId, 'mentor_id': user.id});
+    await ApiService().updateMeeting(meetingId, meetingDate.toUtc().toIso8601String());
   }
 
   Future<Map<String, dynamic>?> getMeetingDetails(String meetingId) async {
@@ -221,22 +134,7 @@ class MeetingService {
     if (user == null) return null;
 
     try {
-      final response = await _supabase
-          .from('meetings')
-          .select('*, mentor:mentor_id(first_name, last_name)')
-          .eq('id', meetingId)
-          .eq('is_deleted', false)
-          .single();
-
-      final registrations = await _supabase
-          .from('workshop_participants')
-          .select('meeting_id')
-          .eq('meeting_id', meetingId)
-          .eq('student_id', user.id);
-
-      final Map<String, dynamic> meetingMap = Map<String, dynamic>.from(response);
-      meetingMap['is_registered'] = registrations.isNotEmpty;
-      return meetingMap;
+      return await ApiService().getMeetingDetails(meetingId);
     } catch (e) {
       debugPrint('Error getting meeting details: $e');
       return null;
