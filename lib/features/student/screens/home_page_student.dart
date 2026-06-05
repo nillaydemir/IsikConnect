@@ -569,6 +569,7 @@ class _MyMentorTabState extends State<_MyMentorTab> {
           availableDays: List<String>.from(mentorData['available_days'] ?? []),
           avgRating: avgRating,
           reviewCount: reviewCount,
+          badge: mentorData['badge']?.toString() ?? '🌱 New Mentor',
         );
       }
     } catch (e) {
@@ -927,6 +928,9 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                              const SizedBox(height: 4),
+                              _buildBadgeWidget(_matchedMentor!.badge),
+                              const SizedBox(height: 4),
                               Text(
                                 '${_matchedMentor!.jobTitle ?? 'Mentor'} at ${_matchedMentor!.company ?? ''}',
                                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
@@ -1097,6 +1101,39 @@ class _MyMentorTabState extends State<_MyMentorTab> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBadgeWidget(String badge) {
+    Color bgColor;
+    Color textColor;
+    
+    if (badge.contains('👑')) {
+      bgColor = Colors.amber.shade50;
+      textColor = Colors.amber.shade900;
+    } else if (badge.contains('⭐')) {
+      bgColor = Colors.blue.shade50;
+      textColor = Colors.blue.shade900;
+    } else {
+      bgColor = Colors.green.shade50;
+      textColor = Colors.green.shade900;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: textColor.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Text(
+        badge,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          color: textColor,
+        ),
       ),
     );
   }

@@ -43,6 +43,7 @@ class Mentor extends User {
   final List<String> availableDays;
   final double avgRating;
   final int reviewCount;
+  final String badge;
 
   Mentor({
     required super.id,
@@ -59,6 +60,7 @@ class Mentor extends User {
     this.currentStudentsCount = 0,
     this.avgRating = 0.0,
     this.reviewCount = 0,
+    this.badge = '🌱 New Mentor',
   });
 
   bool get isAvailable => currentStudentsCount < maxCapacity;
