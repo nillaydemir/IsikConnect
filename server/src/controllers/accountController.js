@@ -191,7 +191,8 @@ const changePassword = async (req, res) => {
       if (!isMatch) {
         // Fallback to Supabase Auth verification
         try {
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          const authClient = supabase.getAdminClient();
+          const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
             email: user.email,
             password: currentPassword
           });

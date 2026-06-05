@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/models/app_user_model.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../profile/screens/profile_page.dart';
 
 class AdminUsersScreen extends StatefulWidget {
@@ -11,7 +11,6 @@ class AdminUsersScreen extends StatefulWidget {
 }
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
-  final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<AppUser> _allUsers = [];
   List<AppUser> _filteredUsers = [];
@@ -33,13 +32,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   Future<void> _fetchUsers() async {
     setState(() => _isLoading = true);
     try {
-      final response = await _supabase
-          .from('users')
-          .select()
-          .not('role', 'eq', 'admin')
-          .order('created_at', ascending: false);
-
-      final users = (response as List).map((u) => AppUser.fromJson(u)).toList();
+      final response = await ApiService().fetchAdminUsers();
+      final users = response.map((u) => AppUser.fromJson(u)).toList();
       setState(() {
         _allUsers = users;
         _filteredUsers = users;
@@ -63,83 +57,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     });
   }
 
-  Future<void> _handleUserDeactivation(String userId) async {
-    try {
-      final userRes = await _supabase
-          .from('users')
-          .select('role')
-          .eq('id', userId)
-          .single();
-      final role = userRes['role'] as String?;
-
-      if (role == 'student') {
-        final matches = await _supabase
-            .from('matches')
-            .select()
-            .eq('student_id', userId)
-            .eq('status', 'active');
-
-        for (var match in matches) {
-          final mentorId = match['mentor_id'] as String;
-          await _supabase
-              .from('matches')
-              .update({'status': 'cancelled', 'cancelled_by': 'admin'})
-              .eq('id', match['id']);
-
-          final mentorRes = await _supabase
-              .from('mentors')
-              .select('current_student_count')
-              .eq('id', mentorId)
-              .maybeSingle();
-          if (mentorRes != null) {
-            int currentCount = mentorRes['current_student_count'] ?? 0;
-            await _supabase.from('mentors').update({
-              'current_student_count': currentCount > 0 ? currentCount - 1 : 0,
-            }).eq('id', mentorId);
-          }
-        }
-
-        await _supabase
-            .from('students')
-            .update({'matched_mentor_id': null})
-            .eq('id', userId);
-
-      } else if (role == 'mentor') {
-        final matches = await _supabase
-            .from('matches')
-            .select()
-            .eq('mentor_id', userId)
-            .eq('status', 'active');
-
-        for (var match in matches) {
-          final studentId = match['student_id'] as String;
-          await _supabase
-              .from('matches')
-              .update({'status': 'cancelled', 'cancelled_by': 'admin'})
-              .eq('id', match['id']);
-
-          await _supabase
-              .from('students')
-              .update({'matched_mentor_id': null})
-              .eq('id', studentId);
-        }
-
-        await _supabase
-            .from('mentors')
-            .update({'current_student_count': 0})
-            .eq('id', userId);
-      }
-    } catch (e) {
-      debugPrint('Error handling match cancellations on user deactivation: $e');
-    }
-  }
-
   Future<void> _updateUserField(String userId, String field, dynamic value) async {
     try {
-      await _supabase.from('users').update({field: value}).eq('id', userId);
-      if (field == 'is_deleted' && value == true) {
-        await _handleUserDeactivation(userId);
-      }
+      await ApiService().updateAdminUserField(userId, field, value);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('User updated successfully'), backgroundColor: Colors.green),

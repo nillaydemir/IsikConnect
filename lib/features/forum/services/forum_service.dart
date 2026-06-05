@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/forum_post_model.dart';
 import '../models/forum_comment_model.dart';
 import '../../../core/services/current_session.dart';
+import '../../../core/services/api_service.dart';
 
 class ForumService {
   final _supabase = Supabase.instance.client;
@@ -33,9 +34,18 @@ class ForumService {
     refresh();
 
     // Listen to changes in posts, likes, and comments to keep the feed perfectly synced
-    final postsSub = _supabase.from('forum_posts').stream(primaryKey: ['id']).listen((_) => refresh());
-    final likesSub = _supabase.from('forum_likes').stream(primaryKey: ['post_id', 'user_id']).listen((_) => refresh());
-    final commentsSub = _supabase.from('forum_comments').stream(primaryKey: ['id']).listen((_) => refresh());
+    final postsSub = _supabase.from('forum_posts').stream(primaryKey: ['id']).listen(
+      (_) => refresh(),
+      onError: (e) => debugPrint('Realtime sub error (forum_posts): $e'),
+    );
+    final likesSub = _supabase.from('forum_likes').stream(primaryKey: ['post_id', 'user_id']).listen(
+      (_) => refresh(),
+      onError: (e) => debugPrint('Realtime sub error (forum_likes): $e'),
+    );
+    final commentsSub = _supabase.from('forum_comments').stream(primaryKey: ['id']).listen(
+      (_) => refresh(),
+      onError: (e) => debugPrint('Realtime sub error (forum_comments): $e'),
+    );
 
     controller.onCancel = () {
       postsSub.cancel();
@@ -51,10 +61,11 @@ class ForumService {
 
   // --- Mark as Read ---
   Future<void> markAsRead(String postId) async {
-    await _supabase.from('forum_read_posts').upsert({
-      'post_id': postId,
-      'user_id': _currentUserId,
-    });
+    try {
+      await ApiService().markPostAsRead(postId);
+    } catch (e) {
+      debugPrint('Error marking post as read: $e');
+    }
   }
 
   // --- Get Unread Posts Stream ---
@@ -64,12 +75,7 @@ class ForumService {
     Future<void> updatePosts() async {
       try {
         final allPosts = await fetchPosts(null);
-        final readResponse = await _supabase
-            .from('forum_read_posts')
-            .select('post_id')
-            .eq('user_id', _currentUserId);
-        
-        final readPostIds = (readResponse as List).map((e) => e['post_id'] as String).toSet();
+        final readPostIds = (await ApiService().fetchReadPostIds()).toSet();
         final unreadPosts = allPosts.where((post) => !readPostIds.contains(post.id)).toList();
         if (!controller.isClosed) {
           controller.add(unreadPosts);
@@ -86,14 +92,20 @@ class ForumService {
     final postsSubscription = _supabase
         .from('forum_posts')
         .stream(primaryKey: ['id'])
-        .listen((_) => updatePosts());
+        .listen(
+          (_) => updatePosts(),
+          onError: (e) => debugPrint('Realtime sub error (forum_posts): $e'),
+        );
 
     // Listen for read status changes
     final readSubscription = _supabase
         .from('forum_read_posts')
         .stream(primaryKey: ['user_id', 'post_id'])
         .eq('user_id', _currentUserId)
-        .listen((_) => updatePosts());
+        .listen(
+          (_) => updatePosts(),
+          onError: (e) => debugPrint('Realtime sub error (forum_read_posts): $e'),
+        );
 
     controller.onCancel = () {
       postsSubscription.cancel();
@@ -111,12 +123,7 @@ class ForumService {
     Future<void> updateCount() async {
       try {
         final allPosts = await fetchPosts(null);
-        final readResponse = await _supabase
-            .from('forum_read_posts')
-            .select('post_id')
-            .eq('user_id', _currentUserId);
-        
-        final readPostIds = (readResponse as List).map((e) => e['post_id'] as String).toSet();
+        final readPostIds = (await ApiService().fetchReadPostIds()).toSet();
         final unreadCount = allPosts.where((post) => !readPostIds.contains(post.id)).length;
         if (!controller.isClosed) {
           controller.add(unreadCount);
@@ -133,14 +140,20 @@ class ForumService {
     final postsSubscription = _supabase
         .from('forum_posts')
         .stream(primaryKey: ['id'])
-        .listen((_) => updateCount());
+        .listen(
+          (_) => updateCount(),
+          onError: (e) => debugPrint('Realtime sub error (forum_posts): $e'),
+        );
 
     // Listen for read status changes
     final readSubscription = _supabase
         .from('forum_read_posts')
         .stream(primaryKey: ['user_id', 'post_id'])
         .eq('user_id', _currentUserId)
-        .listen((_) => updateCount());
+        .listen(
+          (_) => updateCount(),
+          onError: (e) => debugPrint('Realtime sub error (forum_read_posts): $e'),
+        );
 
     controller.onCancel = () {
       postsSubscription.cancel();
@@ -153,35 +166,24 @@ class ForumService {
 
   // Fallback Future method since Stream with deep joins in Supabase Flutter can sometimes be limited
   Future<List<ForumPost>> fetchPosts(String? category) async {
-    var query = _supabase
-        .from('forum_posts')
-        .select('''
-          *,
-          users!author_id(first_name, last_name, role, profile_image_url, is_deleted),
-          forum_likes(user_id),
-          forum_comments(id, is_deleted)
-        ''')
-        .eq('is_deleted', false);
-
-    if (category != null) {
-      query = query.eq('category', category);
+    try {
+      final List<Map<String, dynamic>> response = await ApiService().fetchPosts(category);
+      return response.map((json) => ForumPost.fromJson(json, _currentUserId)).toList();
+    } catch (e) {
+      debugPrint('Error fetching posts: $e');
+      rethrow;
     }
-
-    final response = await query.order('created_at', ascending: false);
-
-    return (response as List).map((json) => ForumPost.fromJson(json, _currentUserId)).toList();
   }
 
   // --- Fetch Comments ---
   Future<List<ForumComment>> fetchComments(String postId) async {
-    final response = await _supabase
-        .from('forum_comments')
-        .select('*, users!author_id(first_name, last_name, role, profile_image_url, is_deleted)')
-        .eq('post_id', postId)
-        .eq('is_deleted', false)
-        .order('created_at', ascending: true);
-
-    return (response as List).map((json) => ForumComment.fromJson(json)).toList();
+    try {
+      final List<Map<String, dynamic>> response = await ApiService().fetchComments(postId);
+      return response.map((json) => ForumComment.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Error fetching comments: $e');
+      rethrow;
+    }
   }
 
   // --- Create Post ---
@@ -195,78 +197,71 @@ class ForumService {
     String? meetingLink,
     int? participantLimit,
   }) async {
-    await _supabase.from('forum_posts').insert({
-      'author_id': _currentUserId,
-      'category': category,
-      'title': title,
-      'content': content,
-      'image_url': imageUrl,
-      'tags': tags,
-      'event_date': eventDate?.toIso8601String(),
-      'meeting_link': meetingLink,
-      'participant_limit': participantLimit,
-    });
+    try {
+      await ApiService().createPost(
+        category: category,
+        title: title,
+        content: content,
+        imageUrl: imageUrl,
+        tags: tags,
+        eventDate: eventDate?.toIso8601String(),
+        meetingLink: meetingLink,
+        participantLimit: participantLimit,
+      );
+    } catch (e) {
+      debugPrint('Error creating post: $e');
+      rethrow;
+    }
   }
 
   // --- Create Comment ---
   Future<void> addComment(String postId, String content) async {
-    await _supabase.from('forum_comments').insert({
-      'post_id': postId,
-      'author_id': _currentUserId,
-      'content': content,
-    });
+    try {
+      await ApiService().addComment(postId, content);
+    } catch (e) {
+      debugPrint('Error adding comment: $e');
+      rethrow;
+    }
   }
 
   // --- Like / Unlike ---
   Future<void> toggleLike(String postId, bool isCurrentlyLiked) async {
     try {
-      if (isCurrentlyLiked) {
-        await _supabase
-            .from('forum_likes')
-            .delete()
-            .match({'post_id': postId, 'user_id': _currentUserId});
-      } else {
-        await _supabase
-            .from('forum_likes')
-            .upsert({'post_id': postId, 'user_id': _currentUserId});
-      }
+      await ApiService().toggleLike(postId, isCurrentlyLiked);
     } catch (e) {
       debugPrint('Toggle like error: $e');
+      rethrow;
     }
   }
 
   // --- Accept Answer (Q&A) ---
   Future<void> acceptAnswer(String postId, String commentId) async {
-    // 1. Mark the post as solved
-    await _supabase
-        .from('forum_posts')
-        .update({'is_solved': true, 'accepted_answer_id': commentId})
-        .eq('id', postId)
-        .eq('author_id', _currentUserId); // security: only author can mark
-
-    // 2. Mark the comment as accepted
-    await _supabase
-        .from('forum_comments')
-        .update({'is_accepted': true})
-        .eq('id', commentId);
+    try {
+      await ApiService().acceptAnswer(postId, commentId);
+    } catch (e) {
+      debugPrint('Accept answer error: $e');
+      rethrow;
+    }
   }
 
   // --- Delete Post ---
   Future<void> deletePost(String postId, {bool isAdmin = false}) async {
-    var query = _supabase.from('forum_posts').update({'is_deleted': true}).eq('id', postId);
-    if (!isAdmin) {
-      query = query.eq('author_id', _currentUserId);
+    try {
+      await ApiService().deletePost(postId);
+    } catch (e) {
+      debugPrint('Error deleting post: $e');
+      rethrow;
     }
-    await query;
   }
 
   // --- Delete Comment ---
   Future<void> deleteComment(String commentId, {bool isAdmin = false}) async {
-    var query = _supabase.from('forum_comments').update({'is_deleted': true}).eq('id', commentId);
-    if (!isAdmin) {
-      query = query.eq('author_id', _currentUserId);
+    try {
+      await ApiService().deleteComment(commentId);
+    } catch (e) {
+      debugPrint('Error deleting comment: $e');
+      rethrow;
     }
-    await query;
   }
 
   // --- Update Post ---
@@ -279,17 +274,19 @@ class ForumService {
     String? meetingLink,
     DateTime? eventDate,
   }) async {
-    await _supabase
-        .from('forum_posts')
-        .update({
-          'category': category,
-          'title': title,
-          'content': content,
-          'image_url': imageUrl,
-          'meeting_link': meetingLink,
-          'event_date': eventDate?.toIso8601String(),
-        })
-        .eq('id', postId)
-        .eq('author_id', _currentUserId);
+    try {
+      await ApiService().updatePost(
+        postId: postId,
+        category: category,
+        title: title,
+        content: content,
+        imageUrl: imageUrl,
+        meetingLink: meetingLink,
+        eventDate: eventDate?.toIso8601String(),
+      );
+    } catch (e) {
+      debugPrint('Error updating post: $e');
+      rethrow;
+    }
   }
 }

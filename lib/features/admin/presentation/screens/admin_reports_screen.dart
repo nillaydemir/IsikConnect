@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/current_session.dart';
 import '../../../../core/services/matching_service.dart';
+import '../../../../core/services/api_service.dart';
 
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
@@ -11,7 +11,6 @@ class AdminReportsScreen extends StatefulWidget {
 }
 
 class _AdminReportsScreenState extends State<AdminReportsScreen> {
-  final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<Map<String, dynamic>> _supportTickets = [];
   List<Map<String, dynamic>> _reviews = [];
@@ -36,15 +35,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
-      final ticketsResponse = await _supabase
-          .from('support_tickets')
-          .select('*, users(first_name, last_name, email, id, is_deleted)')
-          .order('created_at', ascending: false);
-
-      final reviewsResponse = await _supabase
-          .from('reviews')
-          .select('*, mentor:mentors(users(first_name, last_name)), student:students(users(first_name, last_name))')
-          .order('created_at', ascending: false);
+      final ticketsResponse = await ApiService().fetchSupportTickets();
+      final reviewsResponse = await ApiService().fetchAllReviews();
 
       setState(() {
         _supportTickets = List<Map<String, dynamic>>.from(ticketsResponse);
@@ -61,34 +53,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     if (!mounted) return;
     setState(() => _isLoadingStats = true);
     try {
-      final sRes = await _supabase.from('users').select('id').eq('role', 'student').eq('is_deleted', false);
-      final mRes = await _supabase.from('users').select('id').eq('role', 'mentor').eq('is_deleted', false);
-      final wRes = await _supabase.from('forum_posts').select('id').eq('category', 'Workshops');
-      final tRes = await _supabase.from('support_tickets').select('id');
-      final otRes = await _supabase.from('support_tickets').select('id').not('status', 'eq', 'resolved');
-      
-      int activeMatchesCount = 0;
-      List<Map<String, dynamic>> activeMatchesList = [];
-      try {
-        final amtRes = await _supabase
-            .from('matches')
-            .select('id, mentor_id, student_id, mentors(users(first_name, last_name, email, profile_image_url)), students(users(first_name, last_name, email, profile_image_url))')
-            .eq('status', 'active');
-        activeMatchesList = List<Map<String, dynamic>>.from(amtRes);
-        activeMatchesCount = activeMatchesList.length;
-      } catch (e) {
-        debugPrint('Error fetching active matches list: $e');
-      }
+      final stats = await ApiService().fetchAdminStats();
 
       if (mounted) {
         setState(() {
-          _studentCount = sRes.length;
-          _mentorCount = mRes.length;
-          _workshopCount = wRes.length;
-          _ticketCount = tRes.length;
-          _openTicketCount = otRes.length;
-          _activeMatchCount = activeMatchesCount;
-          _activeMatches = activeMatchesList;
+          _studentCount = stats['studentCount'] ?? 0;
+          _mentorCount = stats['mentorCount'] ?? 0;
+          _workshopCount = stats['workshopCount'] ?? 0;
+          _ticketCount = stats['ticketCount'] ?? 0;
+          _openTicketCount = stats['openTicketCount'] ?? 0;
+          _activeMatchCount = stats['activeMatchCount'] ?? 0;
+          _activeMatches = List<Map<String, dynamic>>.from(stats['activeMatches'] ?? []);
           _isLoadingStats = false;
         });
       }
@@ -102,10 +77,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
   Future<void> _saveNote(String ticketId, String note) async {
     try {
-      await _supabase
-          .from('support_tickets')
-          .update({'admin_note': note})
-          .eq('id', ticketId);
+      await ApiService().updateTicket(ticketId, {'admin_note': note});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Note saved.'), backgroundColor: Colors.green),
@@ -122,10 +94,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
   Future<void> _markAsResolved(String ticketId, int index) async {
     try {
-      await _supabase
-          .from('support_tickets')
-          .update({'status': 'resolved'})
-          .eq('id', ticketId);
+      await ApiService().updateTicket(ticketId, {'status': 'resolved'});
       setState(() {
         _supportTickets[index]['status'] = 'resolved';
       });
@@ -193,12 +162,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   : text;
 
               try {
-                await _supabase.from('messages').insert({
-                  'sender_id': adminId,
-                  'receiver_id': targetUserId,
-                  'content': finalContent,
-                  'is_read': false,
-                });
+                await ApiService().sendAdminMessage(targetUserId, finalContent);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

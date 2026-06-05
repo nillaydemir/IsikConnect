@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/forum_post_model.dart';
 import '../models/forum_comment_model.dart';
 import '../services/forum_service.dart';
@@ -8,6 +7,7 @@ import 'create_post_screen.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/meeting_service.dart';
 import '../../shared/screens/video_call_screen.dart';
+import '../../../core/services/api_service.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final ForumPost post;
@@ -99,16 +99,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   Future<void> _refreshPost() async {
     try {
-      final response = await Supabase.instance.client
-          .from('forum_posts')
-          .select('''
-            *,
-            users!author_id(first_name, last_name, role, profile_image_url, is_deleted),
-            forum_likes(user_id),
-            forum_comments(id)
-          ''')
-          .eq('id', _currentPost.id)
-          .single();
+      final response = await ApiService().fetchPostDetails(_currentPost.id);
 
       if (mounted) {
         setState(() {

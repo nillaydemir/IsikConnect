@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/api_service.dart';
@@ -74,12 +73,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _fetchLastLoginForTargetUser() async {
     if (!_isOwnProfile && CurrentSession().user?.role == 'admin') {
       try {
-        final lastLoginRes = await Supabase.instance.client
-            .from('user_logins')
-            .select('last_sign_in_at')
-            .eq('id', _user.id)
-            .maybeSingle();
-        if (lastLoginRes != null && lastLoginRes['last_sign_in_at'] != null && mounted) {
+        final lastLoginRes = await ApiService().fetchLastLogin(_user.id);
+        if (lastLoginRes['last_sign_in_at'] != null && mounted) {
           setState(() {
             _user = AppUser(
               id: _user.id,
@@ -112,9 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _fetchDepartmentsAndInterests() async {
     try {
-      final response = await Supabase.instance.client
-          .from('departments')
-          .select('name, interests(name)');
+      final response = await ApiService().fetchDepartments();
       
       final Map<String, List<String>> fetchedData = {};
       for (var dept in response) {
@@ -139,38 +132,15 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() => _isLoading = true);
     }
     try {
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('*, mentors(*), students(*)')
-          .eq('id', widget.targetUserId!)
-          .single();
+      final response = await ApiService().fetchUserById(widget.targetUserId!);
       
       final Map<String, dynamic> mergedData = Map<String, dynamic>.from(response);
-      if (mergedData['role'] == 'student' && mergedData['students'] != null) {
-        final s = mergedData['students'];
-        if (s is List && s.isNotEmpty) {
-          mergedData.addAll(Map<String, dynamic>.from(s.first));
-        } else if (s is Map) {
-          mergedData.addAll(Map<String, dynamic>.from(s));
-        }
-      } else if (mergedData['role'] == 'mentor' && mergedData['mentors'] != null) {
-        final m = mergedData['mentors'];
-        if (m is List && m.isNotEmpty) {
-          mergedData.addAll(Map<String, dynamic>.from(m.first));
-        } else if (m is Map) {
-          mergedData.addAll(Map<String, dynamic>.from(m));
-        }
-      }
 
-      // Fetch last login from the user_logins view (auth.users wrapper) if the viewer is an admin
+      // Fetch last login from backend if the viewer is an admin
       if (!_isOwnProfile && CurrentSession().user?.role == 'admin') {
         try {
-          final lastLoginRes = await Supabase.instance.client
-              .from('user_logins')
-              .select('last_sign_in_at')
-              .eq('id', widget.targetUserId!)
-              .maybeSingle();
-          if (lastLoginRes != null && lastLoginRes['last_sign_in_at'] != null) {
+          final lastLoginRes = await ApiService().fetchLastLogin(widget.targetUserId!);
+          if (lastLoginRes['last_sign_in_at'] != null) {
             mergedData['last_sign_in_at'] = lastLoginRes['last_sign_in_at'];
           }
         } catch (e) {
@@ -218,12 +188,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     try {
       debugPrint('Fetching reviews for mentor ID: ${_user.id}');
-      // Try to fetch via students join first, if that fails, try direct users join
-      final response = await Supabase.instance.client
-          .from('reviews')
-          .select('*, students(users(first_name, last_name, profile_image_url))')
-          .eq('mentor_id', _user.id)
-          .order('created_at', ascending: false);
+      final response = await ApiService().fetchMentorReviews(_user.id);
 
       debugPrint('Reviews fetched: ${response.length}');
       setState(() {
@@ -231,19 +196,6 @@ class _ProfilePageState extends State<ProfilePage> {
       });
     } catch (e) {
       debugPrint('Error fetching reviews: $e');
-      // Fallback for cases where FK might be different
-      try {
-        final response = await Supabase.instance.client
-            .from('reviews')
-            .select('*, users!student_id(first_name, last_name, profile_image_url)')
-            .eq('mentor_id', _user.id)
-            .order('created_at', ascending: false);
-        setState(() {
-          _reviews = List<Map<String, dynamic>>.from(response);
-        });
-      } catch (e2) {
-         debugPrint('Fallback fetch also failed: $e2');
-      }
     }
   }
 
@@ -298,9 +250,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _isLoading = true);
     try {
       if (_shouldDeleteImage) {
-        await Supabase.instance.client.from('users').update({
-          'profile_image_url': null,
-        }).eq('id', _user.id);
+        await ApiService().deleteProfileImage(_user.id);
         _shouldDeleteImage = false;
       }
       if (_selectedNewImage != null) {
@@ -314,54 +264,27 @@ class _ProfilePageState extends State<ProfilePage> {
       final firstName = names.isNotEmpty ? names[0] : '';
       final lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
 
-      // 1. Update basic user info
-      await Supabase.instance.client.from('users').update({
-        'first_name': firstName,
-        'last_name': lastName,
+      final Map<String, dynamic> updateData = {
+        'firstName': firstName,
+        'lastName': lastName,
         'phone': _phoneController.text.trim(),
         'department': _departmentController.text.trim(),
         'bio': _bioController.text.trim(),
-      }).eq('id', _user.id);
+      };
 
-      // 2. Update role-specific info
       if (_user.role == 'mentor') {
-        await Supabase.instance.client.from('mentors').update({
-          'company': _companyController.text.trim(),
-          'job_title': _jobTitleController.text.trim(),
-          'available_days': _selectedDays,
-          'interests': _selectedInterests,
-          'max_students': _maxStudents,
-        }).eq('id', _user.id);
+        updateData['company'] = _companyController.text.trim();
+        updateData['jobTitle'] = _jobTitleController.text.trim();
+        updateData['availableDays'] = _selectedDays;
+        updateData['interests'] = _selectedInterests;
+        updateData['maxStudents'] = _maxStudents;
       } else if (_user.role == 'student') {
-        await Supabase.instance.client.from('students').update({
-          'interests': _selectedInterests,
-          'available_days': _selectedDays,
-        }).eq('id', _user.id);
+        updateData['availableDays'] = _selectedDays;
+        updateData['interests'] = _selectedInterests;
       }
 
-      // 3. Fetch fresh user data to update UI and session
-      final freshResponse = await Supabase.instance.client
-          .from('users')
-          .select('*, mentors(*), students(*)')
-          .eq('id', _user.id)
-          .single();
-
-      final Map<String, dynamic> mergedData = Map<String, dynamic>.from(freshResponse);
-      if (mergedData['role'] == 'student' && mergedData['students'] != null) {
-        final s = mergedData['students'];
-        if (s is List && s.isNotEmpty) {
-          mergedData.addAll(Map<String, dynamic>.from(s.first));
-        } else if (s is Map) {
-          mergedData.addAll(Map<String, dynamic>.from(s));
-        }
-      } else if (mergedData['role'] == 'mentor' && mergedData['mentors'] != null) {
-        final m = mergedData['mentors'];
-        if (m is List && m.isNotEmpty) {
-          mergedData.addAll(Map<String, dynamic>.from(m.first));
-        } else if (m is Map) {
-          mergedData.addAll(Map<String, dynamic>.from(m));
-        }
-      }
+      final freshResponse = await ApiService().updateProfile(_user.id, updateData);
+      final Map<String, dynamic> mergedData = Map<String, dynamic>.from(freshResponse['user']);
 
       setState(() {
         _user = AppUser.fromJson(mergedData);

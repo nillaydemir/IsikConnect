@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/forum_post_model.dart';
 import '../services/forum_service.dart';
 import '../../../core/services/current_session.dart';
+import '../../../core/services/api_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
   final String initialCategory;
@@ -52,15 +51,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     try {
       final user = CurrentSession().user;
       if (user != null) {
-        final response = await Supabase.instance.client
-            .from('meetings')
-            .select('*')
-            .eq('mentor_id', user.id)
-            .eq('meeting_type', 'Workshop')
-            .order('meeting_date', ascending: true);
+        final allMeetings = await ApiService().getMeetings();
+        final response = allMeetings
+            .where((w) => w['mentor_id'] == user.id && w['meeting_type'] == 'Workshop')
+            .toList();
+
+        response.sort((a, b) {
+          final aDate = a['meeting_date'] != null ? DateTime.parse(a['meeting_date']) : DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate = b['meeting_date'] != null ? DateTime.parse(b['meeting_date']) : DateTime.fromMillisecondsSinceEpoch(0);
+          return aDate.compareTo(bDate);
+        });
+
         if (mounted) {
           setState(() {
-            _myWorkshops = List<Map<String, dynamic>>.from(response);
+            _myWorkshops = response;
             // Verify selected ID is valid in list
             if (_selectedMeetingId != null && !_myWorkshops.any((w) => w['id'].toString() == _selectedMeetingId)) {
               _selectedMeetingId = null;
@@ -102,17 +106,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
       
       if (_selectedImage != null) {
-        final bytes = _selectedImage!.bytes;
-        final path = _selectedImage!.path;
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_selectedImage!.name.replaceAll(' ', '_')}';
-        
-        if (bytes != null) {
-           await Supabase.instance.client.storage.from('forum-images').uploadBinary(fileName, bytes);
-        } else if (path != null) {
-           await Supabase.instance.client.storage.from('forum-images').upload(fileName, File(path));
-        }
-        
-        imageUrl = Supabase.instance.client.storage.from('forum-images').getPublicUrl(fileName);
+        imageUrl = await ApiService().uploadForumImage(_selectedImage!);
       }
 
       DateTime? eventDate;

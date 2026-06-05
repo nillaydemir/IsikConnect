@@ -172,7 +172,8 @@ const loginMentor = async (req, res) => {
 
   try {
     // 1. Authenticate with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    const authClient = supabase.getAdminClient();
+    const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
       email,
       password,
     });
