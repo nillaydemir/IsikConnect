@@ -168,7 +168,17 @@ const changePassword = async (req, res) => {
 
     let isMatch = false;
     if (user.role === 'admin') {
-      isMatch = (currentPassword === user.password);
+      if (user.password) {
+        if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+          try {
+            isMatch = await bcrypt.compare(currentPassword, user.password);
+          } catch (e) {
+            console.warn('Bcrypt compare error for admin:', e.message);
+          }
+        } else {
+          isMatch = (currentPassword === user.password);
+        }
+      }
     } else {
       if (user.password) {
         try {
@@ -211,13 +221,8 @@ const changePassword = async (req, res) => {
     }
 
     // 2. Also update in custom users table
-    let newDbPassword;
-    if (user.role === 'admin') {
-      newDbPassword = newPassword;
-    } else {
-      const salt = await bcrypt.genSalt(10);
-      newDbPassword = await bcrypt.hash(newPassword, salt);
-    }
+    const salt = await bcrypt.genSalt(10);
+    const newDbPassword = await bcrypt.hash(newPassword, salt);
 
     const { error: updateError } = await supabase
       .from('users')

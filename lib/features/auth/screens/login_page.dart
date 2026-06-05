@@ -173,15 +173,19 @@ class _LoginPageState extends State<LoginPage> {
                           );
                         }
                       } else if (userDoc['role'] == 'admin') {
-                        if (userDoc['password'] != password) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Incorrect password.'), backgroundColor: Colors.red),
-                          );
-                        } else {
-                          if (!context.mounted) return;
+                        final apiService = ApiService();
+                        final result = await apiService.loginAdmin(email, password);
+
+                        if (!context.mounted) return;
+
+                        if (result['token'] != null) {
                           CurrentSession().user = AppUser.fromJson(userDoc);
+                          CurrentSession().token = result['token'];
                           Navigator.pushReplacementNamed(context, '/admin');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(result['message'] ?? 'Incorrect password.'), backgroundColor: Colors.red),
+                          );
                         }
                       } else {
                         // Student logic

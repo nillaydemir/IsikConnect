@@ -69,7 +69,15 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    let isMatch = false;
+    if (user.password) {
+      if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+        isMatch = await bcrypt.compare(password, user.password);
+      } else {
+        isMatch = (password === user.password);
+      }
+    }
+
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }

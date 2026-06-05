@@ -296,15 +296,7 @@ const rateMentor = async (req, res) => {
   }
 
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    let student_id;
-
-    if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      student_id = decoded.id;
-    } else {
-      return res.status(401).json({ message: "Unauthorized: Missing or invalid token" });
-    }
+    const student_id = req.user.id;
 
     // Upsert the review
     const { data, error } = await supabase

@@ -122,9 +122,21 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  Future<Map<String, dynamic>> loginAdmin(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    return jsonDecode(response.body);
+  }
+
   Future<List<dynamic>> getPendingApplications() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/admin/applications/pending'));
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/applications/pending'),
+        headers: _authHeaders,
+      );
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as List<dynamic>;
       }
@@ -135,7 +147,7 @@ class ApiService {
   Future<void> updateApplicationStatus(String applicationId, String status) async {
     await http.post(
       Uri.parse('$baseUrl/admin/applications/update'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _authHeaders,
       body: jsonEncode({'applicationId': applicationId, 'status': status}),
     );
   }
