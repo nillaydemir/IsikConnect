@@ -87,9 +87,18 @@ class ForumService {
       try {
         final allPosts = await fetchPosts(null);
         final readPostIds = (await ApiService().fetchReadPostIds()).toSet();
-        final unreadPosts = allPosts
+        final userCreatedAt = CurrentSession().user?.createdAt;
+
+        var unreadPosts = allPosts
             .where((post) => !readPostIds.contains(post.id))
             .toList();
+
+        if (userCreatedAt != null) {
+          unreadPosts = unreadPosts
+              .where((post) => post.createdAt.toUtc().isAfter(userCreatedAt.toUtc()))
+              .toList();
+        }
+
         if (!controller.isClosed) {
           controller.add(unreadPosts);
         }
@@ -138,9 +147,19 @@ class ForumService {
       try {
         final allPosts = await fetchPosts(null);
         final readPostIds = (await ApiService().fetchReadPostIds()).toSet();
-        final unreadCount = allPosts
+        final userCreatedAt = CurrentSession().user?.createdAt;
+
+        var unreadPosts = allPosts
             .where((post) => !readPostIds.contains(post.id))
-            .length;
+            .toList();
+
+        if (userCreatedAt != null) {
+          unreadPosts = unreadPosts
+              .where((post) => post.createdAt.toUtc().isAfter(userCreatedAt.toUtc()))
+              .toList();
+        }
+
+        final unreadCount = unreadPosts.length;
         if (!controller.isClosed) {
           controller.add(unreadCount);
         }
