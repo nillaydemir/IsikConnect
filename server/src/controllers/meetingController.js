@@ -39,7 +39,7 @@ const getMentees = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('students')
-      .select('id, users(first_name, last_name, email)')
+      .select('id, class_level, users(first_name, last_name, email, department, profile_image_url)')
       .eq('matched_mentor_id', mentorId);
 
     if (error) throw error;
@@ -51,9 +51,14 @@ const getMentees = async (req, res) => {
       }
       return {
         id: row.id,
-        first_name: user?.first_name || 'Mentee',
-        last_name: user?.last_name || '',
-        email: user?.email || ''
+        class_level: row.class_level || '',
+        users: {
+          first_name: user?.first_name || 'Mentee',
+          last_name: user?.last_name || '',
+          email: user?.email || '',
+          department: user?.department || '',
+          profile_image_url: user?.profile_image_url || null
+        }
       };
     });
 

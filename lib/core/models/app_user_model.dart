@@ -50,7 +50,7 @@ class AppUser {
       role: json['role'] as String,
       isApproved: json['is_approved'] as bool? ?? false,
       isDeleted: json['is_deleted'] as bool? ?? false,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
       name: json['name'] ?? json['full_name'] ?? 
             (json['first_name'] != null && json['last_name'] != null 
              ? '${json['first_name']} ${json['last_name']}' 

@@ -85,6 +85,7 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'forum_fab',
         onPressed: _onAddPressed,
         backgroundColor: primaryColor,
         child: const Icon(Icons.add, color: Colors.white),

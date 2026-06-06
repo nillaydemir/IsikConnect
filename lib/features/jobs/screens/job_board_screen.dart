@@ -155,6 +155,7 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
             ),
       floatingActionButton: _canPost
           ? FloatingActionButton(
+              heroTag: 'job_board_fab',
               onPressed: () async {
                 final result = await Navigator.push(
                   context,

@@ -81,6 +81,7 @@ const fetchUsers = async (req, res) => {
     const { data, error } = await supabase
       .from('users')
       .select('*')
+      .eq('is_approved', true)
       .not('role', 'eq', 'admin')
       .order('created_at', { ascending: false });
 
