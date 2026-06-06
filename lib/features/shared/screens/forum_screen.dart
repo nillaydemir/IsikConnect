@@ -13,7 +13,8 @@ class ForumScreen extends StatefulWidget {
   State<ForumScreen> createState() => _ForumScreenState();
 }
 
-class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStateMixin {
+class _ForumScreenState extends State<ForumScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _refreshCount = 0;
 
@@ -32,7 +33,7 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
   void _onAddPressed() async {
     final role = CurrentSession().user?.role ?? 'student';
     String initialCategory = 'Q&A';
-    
+
     if (role == 'mentor') {
       if (_tabController.index == 0) initialCategory = 'Announcements';
       if (_tabController.index == 2) initialCategory = 'Workshops';
@@ -41,7 +42,8 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CreatePostScreen(initialCategory: initialCategory),
+        builder: (context) =>
+            CreatePostScreen(initialCategory: initialCategory),
       ),
     );
 
@@ -59,7 +61,10 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Community Forum', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        title: const Text(
+          'Community Forum',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
@@ -85,7 +90,6 @@ class _ForumScreenState extends State<ForumScreen> with SingleTickerProviderStat
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: 'forum_fab',
         onPressed: _onAddPressed,
         backgroundColor: primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
@@ -103,7 +107,8 @@ class _ForumList extends StatefulWidget {
   State<_ForumList> createState() => _ForumListState();
 }
 
-class _ForumListState extends State<_ForumList> with AutomaticKeepAliveClientMixin {
+class _ForumListState extends State<_ForumList>
+    with AutomaticKeepAliveClientMixin {
   late Future<List<ForumPost>> _postsFuture;
   final _forumService = ForumService();
 
@@ -179,11 +184,18 @@ class _ForumListState extends State<_ForumList> with AutomaticKeepAliveClientMix
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.forum_outlined, size: 64, color: Colors.grey.shade300),
+                      Icon(
+                        Icons.forum_outlined,
+                        size: 64,
+                        color: Colors.grey.shade300,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'No posts in ${widget.category} yet.',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                   ),
@@ -203,7 +215,9 @@ class _ForumListState extends State<_ForumList> with AutomaticKeepAliveClientMix
                 onTap: () async {
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => PostDetailScreen(post: post)),
+                    MaterialPageRoute(
+                      builder: (context) => PostDetailScreen(post: post),
+                    ),
                   );
                   _refresh();
                 },

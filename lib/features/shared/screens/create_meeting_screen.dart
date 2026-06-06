@@ -190,9 +190,12 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                       value: _selectedMenteeId,
                       isExpanded: true,
                       items: _mentees.map((mentee) {
+                        final userData = mentee['users'] as Map<String, dynamic>?;
+                        final firstName = userData?['first_name'] ?? 'Mentee';
+                        final lastName = userData?['last_name'] ?? '';
                         return DropdownMenuItem<String>(
                           value: mentee['id'],
-                          child: Text('${mentee['first_name']} ${mentee['last_name']}'),
+                          child: Text('$firstName $lastName'),
                         );
                       }).toList(),
                       onChanged: (newValue) {

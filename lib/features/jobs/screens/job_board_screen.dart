@@ -12,7 +12,8 @@ class JobBoardScreen extends StatefulWidget {
   State<JobBoardScreen> createState() => _JobBoardScreenState();
 }
 
-class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProviderStateMixin {
+class _JobBoardScreenState extends State<JobBoardScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _jobService = JobService();
   final _searchController = TextEditingController();
@@ -25,16 +26,17 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
   bool _isLoading = false;
   String _searchQuery = '';
 
-  bool get _canPost => 
-      CurrentSession().user?.role == 'mentor' || 
-      CurrentSession().user?.role == 'admin';
+  bool get _canPost => CurrentSession().user?.role == 'mentor';
 
   bool get _isStudent => CurrentSession().user?.role == 'student';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _canPost || _isStudent ? 2 : 1, vsync: this);
+    _tabController = TabController(
+      length: _canPost || _isStudent ? 2 : 1,
+      vsync: this,
+    );
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
         _searchController.clear();
@@ -114,7 +116,10 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Career Opportunities', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        title: const Text(
+          'Career Opportunities',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
@@ -124,7 +129,10 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
                 labelColor: primaryColor,
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: primaryColor,
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
                 tabs: [
                   const Tab(text: 'All Postings'),
                   if (_canPost) const Tab(text: 'My Listings'),
@@ -155,11 +163,12 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
             ),
       floatingActionButton: _canPost
           ? FloatingActionButton(
-              heroTag: 'job_board_fab',
               onPressed: () async {
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const CreateEditJobScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const CreateEditJobScreen(),
+                  ),
                 );
                 if (result == true) {
                   _loadData();
@@ -185,10 +194,17 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
         decoration: InputDecoration(
           hintText: 'Search jobs, companies, internships...',
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-          prefixIcon: Icon(Icons.search, color: primaryColor.withValues(alpha: 0.6), size: 22),
+          prefixIcon: Icon(
+            Icons.search,
+            color: primaryColor.withValues(alpha: 0.6),
+            size: 22,
+          ),
           filled: true,
           fillColor: Colors.grey[50],
-          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 0,
+            horizontal: 16,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: Colors.grey.shade200),
@@ -218,11 +234,15 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.business_center_outlined, size: 64, color: Colors.grey[300]),
+                  Icon(
+                    Icons.business_center_outlined,
+                    size: 64,
+                    color: Colors.grey[300],
+                  ),
                   const SizedBox(height: 16),
                   Text(
-                    isMyListings 
-                        ? 'You haven\'t posted any listings yet.' 
+                    isMyListings
+                        ? 'You haven\'t posted any listings yet.'
                         : 'No postings found matching your search.',
                     style: TextStyle(color: Colors.grey[600], fontSize: 14),
                   ),
@@ -250,7 +270,8 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
 
   Widget _buildJobCard(JobPosting job) {
     const primaryColor = Color.fromARGB(255, 38, 55, 140);
-    final dateStr = '${job.createdAt.day}/${job.createdAt.month}/${job.createdAt.year}';
+    final dateStr =
+        '${job.createdAt.day}/${job.createdAt.month}/${job.createdAt.year}';
 
     return GestureDetector(
       onTap: () async {
@@ -274,7 +295,7 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
               color: Colors.black.withValues(alpha: 0.01),
               blurRadius: 8,
               offset: const Offset(0, 2),
-            )
+            ),
           ],
         ),
         child: Row(
@@ -286,7 +307,11 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
                 color: primaryColor.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.business_center_rounded, color: primaryColor, size: 24),
+              child: const Icon(
+                Icons.business_center_rounded,
+                color: primaryColor,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 16),
 
@@ -297,24 +322,40 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
                 children: [
                   Text(
                     job.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.black87,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     job.company,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Icon(Icons.person_outline, size: 13, color: Colors.grey[400]),
+                      Icon(
+                        Icons.person_outline,
+                        size: 13,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         job.mentorName,
                         style: TextStyle(color: Colors.grey[500], fontSize: 11),
                       ),
                       const SizedBox(width: 12),
-                      Icon(Icons.access_time, size: 13, color: Colors.grey[400]),
+                      Icon(
+                        Icons.access_time,
+                        size: 13,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         dateStr,
@@ -372,7 +413,7 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
 
           final job = JobPosting.fromJson(jobPosting);
           final status = app['status'] as String? ?? 'applied';
-          
+
           Color badgeColor;
           String statusText;
 
@@ -394,7 +435,9 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
             onTap: () async {
               final res = await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => JobDetailScreen(job: job)),
+                MaterialPageRoute(
+                  builder: (context) => JobDetailScreen(job: job),
+                ),
               );
               if (res == true) {
                 _loadData();
@@ -416,12 +459,20 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
                       children: [
                         Text(
                           job.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           job.company,
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
@@ -430,11 +481,16 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
                   // Deleted banner if applicable
                   if (job.isDeleted) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.15)),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.15),
+                        ),
                       ),
                       child: const Text(
                         'Posting Removed',
@@ -449,11 +505,16 @@ class _JobBoardScreenState extends State<JobBoardScreen> with SingleTickerProvid
                   ],
                   // Status badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: badgeColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: badgeColor.withValues(alpha: 0.12)),
+                      border: Border.all(
+                        color: badgeColor.withValues(alpha: 0.12),
+                      ),
                     ),
                     child: Text(
                       statusText,
