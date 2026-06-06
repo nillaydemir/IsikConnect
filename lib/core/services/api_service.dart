@@ -8,7 +8,14 @@ import 'current_session.dart';
 class ApiService {
   final String baseUrl;
 
-  ApiService({String? baseUrl}) : baseUrl = baseUrl ?? (kIsWeb ? 'http://localhost:3000' : (Platform.isAndroid ? 'http://10.0.2.2:3000' : 'http://localhost:3000'));
+  ApiService({String? baseUrl})
+    : baseUrl =
+          baseUrl ??
+          (kIsWeb
+              ? 'http://localhost:3000'
+              : (Platform.isAndroid
+                    ? 'http://10.0.2.2:3000'
+                    : 'http://localhost:3000'));
 
   Map<String, String> get _authHeaders {
     final headers = {'Content-Type': 'application/json'};
@@ -18,9 +25,15 @@ class ApiService {
     return headers;
   }
 
-  Future<Map<String, dynamic>> registerMentor(Map<String, dynamic> data, dynamic file) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/mentor/register'));
-    
+  Future<Map<String, dynamic>> registerMentor(
+    Map<String, dynamic> data,
+    dynamic file,
+  ) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/mentor/register'),
+    );
+
     // Add file
     if (!kIsWeb && file is File) {
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
@@ -34,19 +47,23 @@ class ApiService {
 
       if (!kIsWeb && platformFile.path != null) {
         // Mobile / Local path available
-        request.files.add(await http.MultipartFile.fromPath('file', platformFile.path!));
+        request.files.add(
+          await http.MultipartFile.fromPath('file', platformFile.path!),
+        );
       } else if (platformFile.bytes != null) {
         // Web / Desktop without direct path access
-        request.files.add(http.MultipartFile.fromBytes(
-          'file',
-          platformFile.bytes!,
-          filename: platformFile.name,
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            platformFile.bytes!,
+            filename: platformFile.name,
+          ),
+        );
       } else {
         throw 'No file data available for upload';
       }
     }
-    
+
     // Add other fields
     data.forEach((key, value) {
       if (key == 'available_days' || key == 'interests') {
@@ -65,27 +82,37 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> registerStudent(Map<String, dynamic> data, dynamic file) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/student/register'));
-    
+  Future<Map<String, dynamic>> registerStudent(
+    Map<String, dynamic> data,
+    dynamic file,
+  ) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/student/register'),
+    );
+
     // Add file
     if (!kIsWeb && file is File) {
       request.files.add(await http.MultipartFile.fromPath('file', file.path));
     } else {
       final platformFile = file;
       if (!kIsWeb && platformFile.path != null) {
-        request.files.add(await http.MultipartFile.fromPath('file', platformFile.path!));
+        request.files.add(
+          await http.MultipartFile.fromPath('file', platformFile.path!),
+        );
       } else if (platformFile.bytes != null) {
-        request.files.add(http.MultipartFile.fromBytes(
-          'file',
-          platformFile.bytes!,
-          filename: platformFile.name,
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'file',
+            platformFile.bytes!,
+            filename: platformFile.name,
+          ),
+        );
       } else {
         throw 'No file data available for upload';
       }
     }
-    
+
     // Add fields
     data.forEach((key, value) {
       if (key == 'available_days' || key == 'interests') {
@@ -104,7 +131,10 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> loginMentor(String email, String password) async {
+  Future<Map<String, dynamic>> loginMentor(
+    String email,
+    String password,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/mentor/login'),
       headers: {'Content-Type': 'application/json'},
@@ -113,7 +143,10 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  Future<Map<String, dynamic>> loginStudent(String email, String password) async {
+  Future<Map<String, dynamic>> loginStudent(
+    String email,
+    String password,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/student/login'),
       headers: {'Content-Type': 'application/json'},
@@ -131,7 +164,10 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  Future<Map<String, dynamic>> loginUnified(String email, String password) async {
+  Future<Map<String, dynamic>> loginUnified(
+    String email,
+    String password,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login-unified'),
       headers: {'Content-Type': 'application/json'},
@@ -153,7 +189,10 @@ class ApiService {
     return [];
   }
 
-  Future<void> updateApplicationStatus(String applicationId, String status) async {
+  Future<void> updateApplicationStatus(
+    String applicationId,
+    String status,
+  ) async {
     await http.post(
       Uri.parse('$baseUrl/admin/applications/update'),
       headers: _authHeaders,
@@ -161,7 +200,10 @@ class ApiService {
     );
   }
 
-  Future<Map<String, dynamic>> updateProfile(String userId, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateProfile(
+    String userId,
+    Map<String, dynamic> data,
+  ) async {
     final response = await http.put(
       Uri.parse('$baseUrl/profile/$userId'),
       headers: _authHeaders,
@@ -173,21 +215,31 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  Future<Map<String, dynamic>> uploadProfileImage(String userId, dynamic file) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/profile/$userId/image'));
-    
+  Future<Map<String, dynamic>> uploadProfileImage(
+    String userId,
+    dynamic file,
+  ) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/profile/$userId/image'),
+    );
+
     if (file is File) {
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
     } else {
       final platformFile = file;
       if (platformFile.path != null) {
-        request.files.add(await http.MultipartFile.fromPath('image', platformFile.path!));
+        request.files.add(
+          await http.MultipartFile.fromPath('image', platformFile.path!),
+        );
       } else if (platformFile.bytes != null) {
-        request.files.add(http.MultipartFile.fromBytes(
-          'image',
-          platformFile.bytes!,
-          filename: platformFile.name,
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            platformFile.bytes!,
+            filename: platformFile.name,
+          ),
+        );
       }
     }
 
@@ -203,13 +255,20 @@ class ApiService {
     return jsonDecode(responseBody);
   }
 
-  Future<void> deleteAccount(String userId) async {
+  Future<void> deleteAccount(String userId, String password) async {
+    final hashedPassword = sha256.convert(utf8.encode(password)).toString();
     final response = await http.delete(
       Uri.parse('$baseUrl/account/$userId'),
       headers: _authHeaders,
+      body: jsonEncode({'password': hashedPassword}),
     );
     if (response.statusCode != 200) {
-      throw 'Error deleting account: ${response.statusCode} - ${response.body}';
+      Map<String, dynamic> errorBody = {};
+      try {
+        errorBody = jsonDecode(response.body);
+      } catch (_) {}
+      throw errorBody['error'] ??
+          'Error deleting account: ${response.statusCode}';
     }
   }
 
@@ -224,8 +283,13 @@ class ApiService {
     }
   }
 
-  Future<void> updatePassword(String currentPassword, String newPassword) async {
-    final hashedCurrent = sha256.convert(utf8.encode(currentPassword)).toString();
+  Future<void> updatePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    final hashedCurrent = sha256
+        .convert(utf8.encode(currentPassword))
+        .toString();
     final hashedNew = sha256.convert(utf8.encode(newPassword)).toString();
     final response = await http.post(
       Uri.parse('$baseUrl/account/change-password'),
@@ -244,7 +308,11 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> rateMentor(String mentorId, int rating, String comment) async {
+  Future<Map<String, dynamic>> rateMentor(
+    String mentorId,
+    int rating,
+    String comment,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/student/rate-mentor'),
       headers: _authHeaders,
@@ -270,27 +338,28 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Error running matching: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Error running matching: ${response.statusCode} - ${response.body}';
     }
     final data = jsonDecode(response.body);
-    return data['mentor'] != null ? Map<String, dynamic>.from(data['mentor']) : null;
+    return data['mentor'] != null
+        ? Map<String, dynamic>.from(data['mentor'])
+        : null;
   }
 
   Future<void> cancelMentorship(String studentId, String mentorId) async {
     final response = await http.post(
       Uri.parse('$baseUrl/matching/cancel'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'studentId': studentId,
-        'mentorId': mentorId,
-      }),
+      body: jsonEncode({'studentId': studentId, 'mentorId': mentorId}),
     );
     if (response.statusCode != 200) {
       Map<String, dynamic> errorBody = {};
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Error cancelling match: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Error cancelling match: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -341,7 +410,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to create meeting: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to create meeting: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -379,7 +449,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to register for workshop: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to register for workshop: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -393,7 +464,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to unregister from workshop: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to unregister from workshop: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -411,16 +483,15 @@ class ApiService {
     final response = await http.put(
       Uri.parse('$baseUrl/meetings/$meetingId'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'meeting_date': meetingDate,
-      }),
+      body: jsonEncode({'meeting_date': meetingDate}),
     );
     if (response.statusCode != 200) {
       Map<String, dynamic> errorBody = {};
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to update meeting: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to update meeting: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -491,7 +562,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to create job posting: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to create job posting: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -517,7 +589,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to update job posting: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to update job posting: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -532,20 +605,27 @@ class ApiService {
   }
 
   Future<String> uploadCV(dynamic file) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/jobs/upload-cv'));
-    
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/jobs/upload-cv'),
+    );
+
     if (file is File) {
       request.files.add(await http.MultipartFile.fromPath('cv', file.path));
     } else {
       final platformFile = file;
       if (platformFile.path != null) {
-        request.files.add(await http.MultipartFile.fromPath('cv', platformFile.path!));
+        request.files.add(
+          await http.MultipartFile.fromPath('cv', platformFile.path!),
+        );
       } else if (platformFile.bytes != null) {
-        request.files.add(http.MultipartFile.fromBytes(
-          'cv',
-          platformFile.bytes!,
-          filename: platformFile.name,
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'cv',
+            platformFile.bytes!,
+            filename: platformFile.name,
+          ),
+        );
       } else {
         throw 'No file data available for upload';
       }
@@ -564,25 +644,29 @@ class ApiService {
     return data['cvUrl'] as String;
   }
 
-  Future<void> applyForJob(String jobId, String? coverNote, String? cvUrl) async {
+  Future<void> applyForJob(
+    String jobId,
+    String? coverNote,
+    String? cvUrl,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/jobs/$jobId/apply'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'cover_note': coverNote,
-        'cv_url': cvUrl,
-      }),
+      body: jsonEncode({'cover_note': coverNote, 'cv_url': cvUrl}),
     );
     if (response.statusCode != 201) {
       Map<String, dynamic> errorBody = {};
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to apply for job: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to apply for job: ${response.statusCode} - ${response.body}';
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchApplicationsForJob(String jobId) async {
+  Future<List<Map<String, dynamic>>> fetchApplicationsForJob(
+    String jobId,
+  ) async {
     final response = await http.get(
       Uri.parse('$baseUrl/jobs/$jobId/applications'),
       headers: _authHeaders,
@@ -626,17 +710,15 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$baseUrl/jobs/applications/$applicationId/status'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'status': status,
-        'feedback': feedback,
-      }),
+      body: jsonEncode({'status': status, 'feedback': feedback}),
     );
     if (response.statusCode != 200) {
       Map<String, dynamic> errorBody = {};
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to update application status: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to update application status: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -704,7 +786,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to create post: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to create post: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -719,7 +802,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to add comment: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to add comment: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -745,7 +829,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to accept answer: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to accept answer: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -795,7 +880,8 @@ class ApiService {
       try {
         errorBody = jsonDecode(response.body);
       } catch (_) {}
-      throw errorBody['message'] ?? 'Failed to update post: ${response.statusCode} - ${response.body}';
+      throw errorBody['message'] ??
+          'Failed to update post: ${response.statusCode} - ${response.body}';
     }
   }
 
@@ -823,20 +909,27 @@ class ApiService {
   }
 
   Future<String> uploadForumImage(dynamic file) async {
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/forum/upload-image'));
-    
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/forum/upload-image'),
+    );
+
     if (file is File) {
       request.files.add(await http.MultipartFile.fromPath('image', file.path));
     } else {
       final platformFile = file;
       if (platformFile.path != null) {
-        request.files.add(await http.MultipartFile.fromPath('image', platformFile.path!));
+        request.files.add(
+          await http.MultipartFile.fromPath('image', platformFile.path!),
+        );
       } else if (platformFile.bytes != null) {
-        request.files.add(http.MultipartFile.fromBytes(
-          'image',
-          platformFile.bytes!,
-          filename: platformFile.name,
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            platformFile.bytes!,
+            filename: platformFile.name,
+          ),
+        );
       } else {
         throw 'No file data available for upload';
       }
@@ -922,14 +1015,15 @@ class ApiService {
     return jsonDecode(response.body) as List<dynamic>;
   }
 
-  Future<void> updateAdminUserField(String userId, String field, dynamic value) async {
+  Future<void> updateAdminUserField(
+    String userId,
+    String field,
+    dynamic value,
+  ) async {
     final response = await http.put(
       Uri.parse('$baseUrl/admin/users/$userId'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'field': field,
-        'value': value,
-      }),
+      body: jsonEncode({'field': field, 'value': value}),
     );
     if (response.statusCode != 200) {
       throw 'Failed to update user field: ${response.statusCode} - ${response.body}';
@@ -969,7 +1063,10 @@ class ApiService {
     return jsonDecode(response.body) as List<dynamic>;
   }
 
-  Future<void> updateTicket(String ticketId, Map<String, dynamic> updateData) async {
+  Future<void> updateTicket(
+    String ticketId,
+    Map<String, dynamic> updateData,
+  ) async {
     final response = await http.put(
       Uri.parse('$baseUrl/admin/tickets/$ticketId'),
       headers: _authHeaders,
@@ -984,10 +1081,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$baseUrl/admin/messages'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'receiver_id': receiverId,
-        'content': content,
-      }),
+      body: jsonEncode({'receiver_id': receiverId, 'content': content}),
     );
     if (response.statusCode != 200) {
       throw 'Failed to send admin message: ${response.statusCode} - ${response.body}';
@@ -1018,14 +1112,14 @@ class ApiService {
     return data.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
-  Future<Map<String, dynamic>> sendMessage(String receiverId, String content) async {
+  Future<Map<String, dynamic>> sendMessage(
+    String receiverId,
+    String content,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/messages/send'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'receiver_id': receiverId,
-        'content': content,
-      }),
+      body: jsonEncode({'receiver_id': receiverId, 'content': content}),
     );
     if (response.statusCode != 201) {
       throw 'Failed to send message: ${response.statusCode} - ${response.body}';
@@ -1037,9 +1131,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$baseUrl/messages/mark-read'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'senderId': targetUserId,
-      }),
+      body: jsonEncode({'senderId': targetUserId}),
     );
     if (response.statusCode != 200) {
       throw 'Failed to mark messages as read: ${response.statusCode} - ${response.body}';
@@ -1050,16 +1142,16 @@ class ApiService {
     final response = await http.post(
       Uri.parse('$baseUrl/messages/delete-chat'),
       headers: _authHeaders,
-      body: jsonEncode({
-        'targetUserId': targetUserId,
-      }),
+      body: jsonEncode({'targetUserId': targetUserId}),
     );
     if (response.statusCode != 200) {
       throw 'Failed to delete chat: ${response.statusCode} - ${response.body}';
     }
   }
 
-  Future<Map<String, dynamic>> checkConnectionStatus(String targetUserId) async {
+  Future<Map<String, dynamic>> checkConnectionStatus(
+    String targetUserId,
+  ) async {
     final response = await http.get(
       Uri.parse('$baseUrl/messages/connection-status/$targetUserId'),
       headers: _authHeaders,
@@ -1070,7 +1162,9 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-  Future<List<Map<String, dynamic>>> fetchWorkshopParticipants(String meetingId) async {
+  Future<List<Map<String, dynamic>>> fetchWorkshopParticipants(
+    String meetingId,
+  ) async {
     final response = await http.get(
       Uri.parse('$baseUrl/meetings/$meetingId/participants'),
       headers: _authHeaders,

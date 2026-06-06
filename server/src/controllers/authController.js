@@ -38,6 +38,32 @@ const register = async (req, res) => {
 
     if (insertError) throw insertError;
 
+    // Mark all existing forum posts as read for the new user
+    try {
+      const { data: allPosts, error: postsError } = await supabase
+        .from('forum_posts')
+        .select('id');
+
+      if (postsError) {
+        console.warn('Warning: Could not fetch forum posts to mark as read:', postsError.message);
+      } else if (allPosts && allPosts.length > 0) {
+        const readPostsData = allPosts.map(post => ({
+          post_id: post.id,
+          user_id: newUser.id
+        }));
+
+        const { error: upsertError } = await supabase
+          .from('forum_read_posts')
+          .insert(readPostsData);
+
+        if (upsertError) {
+          console.warn('Warning: Could not mark existing posts as read:', upsertError.message);
+        }
+      }
+    } catch (err) {
+      console.warn('Warning: Error marking forum posts as read:', err.message);
+    }
+
     res.status(201).json({
       id: newUser.id,
       name: newUser.name,
