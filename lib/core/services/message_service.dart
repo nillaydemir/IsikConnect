@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'current_session.dart';
 
 class MessageService {
@@ -11,6 +12,7 @@ class MessageService {
     return _supabase
         .from('messages')
         .stream(primaryKey: ['id'])
+        .handleError((e) => debugPrint('Realtime unread count stream error: $e'))
         .map((events) {
           // Filter client-side because multiple .eq() or .or() might not be supported in all versions
           return events.where((m) => 
@@ -27,6 +29,7 @@ class MessageService {
     return _supabase
         .from('messages')
         .stream(primaryKey: ['id'])
+        .handleError((e) => debugPrint('Realtime conversations changed stream error: $e'))
         .map((events) {
           // Filter for messages involving me
           final hasInvolvement = events.any((m) => 

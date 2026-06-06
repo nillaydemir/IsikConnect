@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../profile/screens/profile_page.dart';
@@ -259,11 +258,7 @@ class _HomeTabState extends State<_HomeTab> {
     });
 
     try {
-      // Get students matched with this mentor
-      final response = await Supabase.instance.client
-          .from('students')
-          .select('*, users(*)')
-          .eq('matched_mentor_id', mentorId);
+      final response = await MeetingService().getMentees();
 
       setState(() {
         _mentees = List<Map<String, dynamic>>.from(response);

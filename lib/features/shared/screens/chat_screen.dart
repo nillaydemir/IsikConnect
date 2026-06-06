@@ -4,6 +4,7 @@ import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/message_service.dart';
 import '../../../core/services/matching_service.dart';
+import '../../../core/services/api_service.dart';
 import 'dart:async';
 
 class ConversationItem {
@@ -32,7 +33,6 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<ConversationItem> _conversations = [];
   StreamSubscription? _conversationsSubscription;
@@ -60,208 +60,30 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() => _isLoading = true);
     }
     try {
-      final myId = CurrentSession().user!.id;
-
-      // 1. Fetch ALL matches (active and cancelled) to determine match-based conversations
-      final matchesResponse = await _supabase
-          .from('matches')
-          .select()
-          .or('student_id.eq.$myId,mentor_id.eq.$myId');
-
-      // 2. Extract IDs of the other users, their mentorship status, and active status from matches
-      final Set<String> mentorshipUserIds = {};
-      Map<String, bool> userActiveStatus = {};
-      for (var match in matchesResponse) {
-        String otherId = match['student_id'] == myId
-            ? match['mentor_id']
-            : match['student_id'];
-        bool isActive = match['status'] == 'active';
-        mentorshipUserIds.add(otherId);
-
-        if (userActiveStatus.containsKey(otherId)) {
-          userActiveStatus[otherId] = userActiveStatus[otherId]! || isActive;
-        } else {
-          userActiveStatus[otherId] = isActive;
-        }
-      }
-
-      // Query job applications to determine active status and identify job-related conversations
-      final Set<String> jobUserIds = {};
-      try {
-        final role = CurrentSession().user?.role;
-        if (role == 'student') {
-          final studentJobApps = await _supabase
-              .from('job_applications')
-              .select('status, job_postings(mentor_id)')
-              .eq('student_id', myId);
-          for (var app in studentJobApps) {
-            final job = app['job_postings'] as Map<String, dynamic>?;
-            if (job != null && job['mentor_id'] != null) {
-              final mentorId = job['mentor_id'].toString();
-              jobUserIds.add(mentorId);
-              if (app['status'] == 'accepted') {
-                userActiveStatus[mentorId] = true;
-              }
-            }
-          }
-        } else if (role == 'mentor') {
-          final mentorJobApps = await _supabase
-              .from('job_applications')
-              .select('student_id, status, job_postings(mentor_id)');
-          for (var app in mentorJobApps) {
-            final job = app['job_postings'] as Map<String, dynamic>?;
-            if (job != null && job['mentor_id'] == myId) {
-              final studentId = app['student_id'].toString();
-              jobUserIds.add(studentId);
-              if (app['status'] == 'accepted') {
-                userActiveStatus[studentId] = true;
-              }
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('Error fetching job application conversations: $e');
-      }
-
-      // 3. Fetch all message-based conversation partners (e.g., admin DMs)
-      final sentMessages = await _supabase
-          .from('messages')
-          .select('receiver_id')
-          .eq('sender_id', myId);
-      final receivedMessages = await _supabase
-          .from('messages')
-          .select('sender_id')
-          .eq('receiver_id', myId);
-
-      final Set<String> messageUserIds = {};
-      for (var m in sentMessages as List) {
-        messageUserIds.add(m['receiver_id'].toString());
-      }
-      for (var m in receivedMessages as List) {
-        messageUserIds.add(m['sender_id'].toString());
-      }
-
-      // Merge message-only users into the map (non-match, so isActiveMatch = false)
-      for (var uid in messageUserIds) {
-        if (!userActiveStatus.containsKey(uid)) {
-          userActiveStatus[uid] = false; // DM-only conversation
-        }
-      }
-
-      if (userActiveStatus.isEmpty) {
-        setState(() {
-          _conversations = [];
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // 4. Fetch user details for all conversation partners
-      final usersResponse = await _supabase
-          .from('users')
-          .select()
-          .inFilter('id', userActiveStatus.keys.toList());
-
-      final users = usersResponse.map((u) => AppUser.fromJson(u)).toList();
-
-      // 5. Fetch last message + unread count for each conversation
+      final response = await ApiService().fetchConversations();
+      
       List<ConversationItem> convos = [];
-      for (var user in users) {
-        try {
-          final msgResponse = await _supabase
-              .from('messages')
-              .select()
-              .or(
-                'and(sender_id.eq.$myId,receiver_id.eq.${user.id}),and(sender_id.eq.${user.id},receiver_id.eq.$myId)',
-              )
-              .order('created_at', ascending: false)
-              .limit(10);
+      for (var item in response) {
+        final Map<String, dynamic> convoJson = Map<String, dynamic>.from(item);
+        final targetUser = AppUser.fromJson(convoJson['targetUser']);
+        final lastMsg = convoJson['lastMessage'] as String?;
+        final lastMsgTimeStr = convoJson['lastMessageTime'] as String?;
+        final lastMsgTime = lastMsgTimeStr != null ? DateTime.parse(lastMsgTimeStr).toLocal() : null;
+        final unreadCount = convoJson['unreadCount'] as int? ?? 0;
+        final isActive = convoJson['isActiveMatch'] as bool? ?? false;
+        final label = convoJson['label'] as String?;
 
-          Map<String, dynamic>? lastMsgDoc;
-          if (msgResponse.isNotEmpty) {
-            for (var msg in msgResponse) {
-              final isSender = msg['sender_id'] == myId;
-              if (isSender) {
-                if (msg['deleted_by_sender'] != true) {
-                  lastMsgDoc = Map<String, dynamic>.from(msg);
-                  break;
-                }
-              } else {
-                if (msg['deleted_by_receiver'] != true) {
-                  lastMsgDoc = Map<String, dynamic>.from(msg);
-                  break;
-                }
-              }
-            }
-          }
-
-          String? lastMsg;
-          DateTime? lastMsgTime;
-          int unreadCount = 0;
-
-          if (lastMsgDoc != null) {
-            lastMsg = lastMsgDoc['content'];
-            lastMsgTime = DateTime.parse(lastMsgDoc['created_at']).toLocal();
-            try {
-              final unreadResponse = await _supabase
-                  .from('messages')
-                  .select('id')
-                  .eq('sender_id', user.id)
-                  .eq('receiver_id', myId)
-                  .eq('is_read', false);
-              unreadCount = (unreadResponse as List).length;
-            } catch (e) {
-              debugPrint('is_read column may not exist: $e');
-            }
-          }
-
-          final isActive = userActiveStatus[user.id] ?? false;
-
-          // If cancelled match and no messages, skip
-          if (!isActive && lastMsg == null) continue;
-
-          final myRole = CurrentSession().user?.role;
-          String? label;
-          if (user.role == 'admin') {
-            label = 'Support';
-          } else if (jobUserIds.contains(user.id)) {
-            label = 'Job';
-          } else if (mentorshipUserIds.contains(user.id)) {
-            if (myRole == 'mentor') {
-              label = 'Mentee';
-            } else if (myRole == 'student') {
-              label = 'Mentor';
-            }
-          } else {
-            if (user.role == 'mentor') {
-              label = 'Mentor';
-            } else if (user.role == 'student') {
-              label = 'Mentee';
-            }
-          }
-
-          convos.add(
-            ConversationItem(
-              targetUser: user,
-              lastMessage: lastMsg,
-              lastMessageTime: lastMsgTime,
-              unreadCount: unreadCount,
-              isActiveMatch: isActive,
-              label: label,
-            ),
-          );
-        } catch (e) {
-          debugPrint('Error fetching last message for ${user.id}: $e');
-        }
+        convos.add(
+          ConversationItem(
+            targetUser: targetUser,
+            lastMessage: lastMsg,
+            lastMessageTime: lastMsgTime,
+            unreadCount: unreadCount,
+            isActiveMatch: isActive,
+            label: label,
+          ),
+        );
       }
-
-      // 6. Sort by lastMessageTime descending
-      convos.sort((a, b) {
-        if (a.lastMessageTime == null && b.lastMessageTime == null) return 0;
-        if (a.lastMessageTime == null) return 1;
-        if (b.lastMessageTime == null) return -1;
-        return b.lastMessageTime!.compareTo(a.lastMessageTime!);
-      });
 
       setState(() {
         _conversations = convos;
@@ -527,125 +349,102 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final _supabase = Supabase.instance.client;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
+ 
   late final Stream<List<Map<String, dynamic>>> _messagesStream;
+  late final StreamController<List<Map<String, dynamic>>> _messagesStreamController;
+  StreamSubscription? _messagesSubscription;
   late final String _myId;
-
+ 
   StreamSubscription? _matchSubscription;
   StreamSubscription? _userSubscription;
   bool _isMatchActive = true;
   bool _isTargetUserDeleted = false;
-
+ 
   @override
   void initState() {
     super.initState();
     _myId = CurrentSession().user!.id;
     _isMatchActive = widget.isActiveMatch;
-
-    _messagesStream = _supabase
-        .from('messages')
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: true)
-        .map((events) {
-          // Filter client-side for our conversation and soft-deleted status
-          return events.where((msg) {
-            final sender = msg['sender_id'];
-            final receiver = msg['receiver_id'];
-            
-            if (sender == _myId && receiver == widget.targetUser.id) {
-              return msg['deleted_by_sender'] != true;
-            }
-            if (receiver == _myId && sender == widget.targetUser.id) {
-              return msg['deleted_by_receiver'] != true;
-            }
-            return false;
-          }).toList();
-        });
-
+ 
+    _messagesStreamController = StreamController<List<Map<String, dynamic>>>.broadcast();
+    _messagesStream = _messagesStreamController.stream;
+ 
+    _initMessagesStream();
     _markMessagesAsRead();
     _initSubscriptions();
   }
-
+ 
+  void _initMessagesStream() {
+    Future<void> refresh() async {
+      try {
+        final msgs = await ApiService().fetchChat(widget.targetUser.id);
+        if (!_messagesStreamController.isClosed) {
+          _messagesStreamController.add(msgs);
+        }
+      } catch (e) {
+        debugPrint('Error fetching chat messages: $e');
+      }
+    }
+ 
+    refresh();
+ 
+    _messagesSubscription = _supabase
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .handleError((e) => debugPrint('Realtime messages stream error: $e'))
+        .listen((_) => refresh());
+  }
+ 
   void _initSubscriptions() {
+    Future<void> updateStatus() async {
+      try {
+        final status = await ApiService().checkConnectionStatus(widget.targetUser.id);
+        if (mounted) {
+          setState(() {
+            _isMatchActive = status['isActiveMatch'] ?? false;
+            _isTargetUserDeleted = status['isTargetUserDeleted'] ?? false;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error checking connection status: $e');
+      }
+    }
+ 
+    updateStatus();
+ 
     _matchSubscription = _supabase
         .from('matches')
         .stream(primaryKey: ['id'])
-        .listen((data) async {
-          bool activeFound = false;
-          for (var match in data) {
-            final sId = match['student_id'];
-            final mId = match['mentor_id'];
-            if (((sId == _myId && mId == widget.targetUser.id) || (sId == widget.targetUser.id && mId == _myId)) &&
-                match['status'] == 'active') {
-              activeFound = true;
-              break;
-            }
-          }
-          if (!activeFound) {
-            try {
-              final mentorId = widget.targetUser.role == 'mentor' ? widget.targetUser.id : _myId;
-              final studentId = widget.targetUser.role == 'mentor' ? _myId : widget.targetUser.id;
-              final jobApps = await _supabase
-                  .from('job_applications')
-                  .select('id, job_postings(mentor_id)')
-                  .eq('student_id', studentId)
-                  .eq('status', 'accepted');
-              for (var app in jobApps) {
-                final job = app['job_postings'] as Map<String, dynamic>?;
-                if (job != null && job['mentor_id'] == mentorId) {
-                  activeFound = true;
-                  break;
-                }
-              }
-            } catch (_) {}
-          }
-          if (mounted) {
-            setState(() {
-              _isMatchActive = activeFound;
-            });
-          }
-        });
-
+        .handleError((e) => debugPrint('Realtime matches stream error: $e'))
+        .listen((_) => updateStatus());
+ 
     _userSubscription = _supabase
         .from('users')
         .stream(primaryKey: ['id'])
         .eq('id', widget.targetUser.id)
-        .listen((data) {
-          if (data.isNotEmpty) {
-            final isDeleted = data.first['is_deleted'] == true;
-            if (mounted) {
-              setState(() {
-                _isTargetUserDeleted = isDeleted;
-              });
-            }
-          }
-        });
+        .handleError((e) => debugPrint('Realtime users stream error: $e'))
+        .listen((_) => updateStatus());
   }
-
+ 
   Future<void> _markMessagesAsRead() async {
     try {
-      await _supabase
-          .from('messages')
-          .update({'is_read': true})
-          .eq('sender_id', widget.targetUser.id)
-          .eq('receiver_id', _myId)
-          .eq('is_read', false);
+      await ApiService().markMessagesAsRead(widget.targetUser.id);
     } catch (e) {
-      debugPrint(
-        'Error marking messages as read (column might not exist yet): $e',
-      );
+      debugPrint('Error marking messages as read: $e');
     }
   }
-
+ 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     _matchSubscription?.cancel();
     _userSubscription?.cancel();
+    _messagesSubscription?.cancel();
+    _messagesStreamController.close();
     super.dispose();
   }
-
+ 
   Future<void> _showEndMentorshipDialog() async {
     final myRole = CurrentSession().user!.role;
     String warningMessage = 'Are you sure you want to end your mentorship with ${widget.targetUser.name}? This action cannot be undone.';
@@ -669,17 +468,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       try {
         final cancelledCount = await MatchingService().getMentorCancelledMatchCount(_myId);
         
-        // Fetch mentor's max_students to calculate their limit
-        final mentorRes = await _supabase
-            .from('mentors')
-            .select('max_students')
-            .eq('id', _myId)
-            .maybeSingle();
-            
-        final maxStudents = mentorRes?['max_students'] as int? ?? 1;
+        final mentorRes = await ApiService().fetchUserById(_myId);
+        final maxStudents = mentorRes['max_students'] as int? ?? 1;
         final limit = maxStudents * 2;
         final remainingRights = limit - cancelledCount;
-
+ 
         if (remainingRights > 1) {
           warningMessage += '\n\nIf you cancel, you will have $remainingRights matching cancellation rights remaining for this academic year (starting September).';
         } else if (remainingRights == 1) {
@@ -692,9 +485,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         warningMessage += '\n\nNote: Your cancellation limit for this academic year is twice your maximum capacity.';
       }
     }
-
+ 
     if (!mounted) return;
-
+ 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -719,7 +512,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
     );
   }
-
+ 
   void _showDeleteChatDialog() {
     showDialog(
       context: context,
@@ -747,23 +540,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
     );
   }
-
+ 
   Future<void> _deleteChat() async {
     try {
-      // 1. Soft-delete messages sent by me
-      await _supabase
-          .from('messages')
-          .update({'deleted_by_sender': true})
-          .eq('sender_id', _myId)
-          .eq('receiver_id', widget.targetUser.id);
-
-      // 2. Soft-delete messages received by me
-      await _supabase
-          .from('messages')
-          .update({'deleted_by_receiver': true})
-          .eq('sender_id', widget.targetUser.id)
-          .eq('receiver_id', _myId);
-
+      await ApiService().deleteChat(widget.targetUser.id);
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -782,29 +562,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
   }
-
+ 
   Future<void> _endMentorship() async {
     try {
       final myRole = CurrentSession().user!.role;
       final studentId = myRole == 'mentor' ? widget.targetUser.id : _myId;
       final mentorId = myRole == 'mentor' ? _myId : widget.targetUser.id;
-
-      // Note: We no longer block termination if they exceeded limits.
-      // We allow them to terminate, but they won't be able to match again (handled in HomePageStudent).
-      // If we wanted to block termination, we would check getCancelledMatchCount here.
-      // But logically, a user should always be able to leave a mentor they don't want, they just can't get a new one.
-
+ 
       await MatchingService().cancelMatch(studentId, mentorId, myRole);
-
-      // Also send a system message to the chat
-      await _supabase.from('messages').insert({
-        'sender_id': _myId,
-        'receiver_id': widget.targetUser.id,
-        'content':
-            'Mentorship ended by ${myRole == 'mentor' ? 'mentor' : 'student'}.',
-        'is_read': false,
-      });
-
+ 
+      await ApiService().sendMessage(
+        widget.targetUser.id,
+        'Mentorship ended by ${myRole == 'mentor' ? 'mentor' : 'student'}.',
+      );
+ 
       if (mounted) {
         Navigator.pop(context); // Go back to chats list
         ScaffoldMessenger.of(context).showSnackBar(
@@ -823,7 +594,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     }
   }
-
+ 
   Future<void> _sendMessage() async {
     if (!_isMatchActive || _isTargetUserDeleted) {
       if (mounted) {
@@ -838,19 +609,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
-
+ 
     _messageController.clear();
-
+ 
     try {
-      await _supabase.from('messages').insert({
-        'sender_id': _myId,
-        'receiver_id': widget.targetUser.id,
-        'content': text,
-        'is_read': false,
-        // created_at is handled by DB default now()
-      });
-
-      // Auto-scroll to bottom after sending
+      await ApiService().sendMessage(widget.targetUser.id, text);
       _scrollToBottom();
     } catch (e) {
       debugPrint('Error sending message: $e');

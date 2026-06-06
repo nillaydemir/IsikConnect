@@ -14,7 +14,7 @@ const { protect } = require('../middlewares/authMiddleware');
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.get('/departments', protect, fetchDepartments);
+router.get('/departments', fetchDepartments);
 router.put('/:userId', protect, updateProfile);
 router.post('/:userId/image', protect, upload.single('image'), uploadProfileImage);
 router.delete('/:userId/image', protect, deleteProfileImage);

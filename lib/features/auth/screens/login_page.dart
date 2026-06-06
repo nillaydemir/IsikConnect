@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../../core/services/current_session.dart';
 import '../../../core/services/api_service.dart';
@@ -105,111 +104,32 @@ class _LoginPageState extends State<LoginPage> {
                     try {
                       setState(() => _isLoading = true);
                       
-                      // Check user role and fetch details
-                      final userResponse = await Supabase.instance.client
-                          .from('users')
-                          .select('*, students(*), mentors(*)')
-                          .eq('email', email)
-                          .maybeSingle();
+                      final result = await ApiService().loginUnified(email, password);
 
-                      if (userResponse == null) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('User not found. Please register first.'), backgroundColor: Colors.red),
-                        );
-                        return;
-                      }
+                      if (!context.mounted) return;
 
-                      // Flatten the nested data
-                      final Map<String, dynamic> userDoc = Map<String, dynamic>.from(userResponse);
-                      
-                      if (userDoc['is_deleted'] == true) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Your account has been deactivated. Please contact support.'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
-                      }
-                      
-                      // Helper function to extract nested data safely
-                      Map<String, dynamic>? extractData(dynamic data) {
-                        if (data == null) return null;
-                        if (data is List && data.isNotEmpty) return Map<String, dynamic>.from(data.first);
-                        if (data is Map) return Map<String, dynamic>.from(data);
-                        return null;
-                      }
+                      if (result['token'] != null && result['user'] != null) {
+                        final userMap = Map<String, dynamic>.from(result['user']);
+                        CurrentSession().user = AppUser.fromJson(userMap);
+                        CurrentSession().token = result['token'];
 
-                      if (userDoc['role'] == 'student') {
-                        final studentData = extractData(userDoc['students']);
-                        if (studentData != null) userDoc.addAll(studentData);
-                      } else if (userDoc['role'] == 'mentor') {
-                        final mentorData = extractData(userDoc['mentors']);
-                        if (mentorData != null) userDoc.addAll(mentorData);
-                      }
-
-                      if (userDoc['role'] == 'mentor') {
-                        final apiService = ApiService();
-                        final result = await apiService.loginMentor(email, password);
-
-                        if (!context.mounted) return;
-
-                        if (result['token'] != null) {
-                          // Approved mentor
-                          CurrentSession().user = AppUser.fromJson(userDoc);
-                          CurrentSession().token = result['token'];
+                        if (userMap['role'] == 'mentor') {
                           Navigator.pushReplacementNamed(context, '/mentorHome');
-                        } else if (result['status'] == 'pending') {
-                          Navigator.pushNamed(context, '/pending');
-                        } else if (result['status'] == 'rejected') {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Your application was rejected'), backgroundColor: Colors.red),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(result['message'] ?? 'Login failed'), backgroundColor: Colors.red),
-                          );
-                        }
-                      } else if (userDoc['role'] == 'admin') {
-                        final apiService = ApiService();
-                        final result = await apiService.loginAdmin(email, password);
-
-                        if (!context.mounted) return;
-
-                        if (result['token'] != null) {
-                          CurrentSession().user = AppUser.fromJson(userDoc);
-                          CurrentSession().token = result['token'];
+                        } else if (userMap['role'] == 'admin') {
                           Navigator.pushReplacementNamed(context, '/admin');
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(result['message'] ?? 'Incorrect password.'), backgroundColor: Colors.red),
-                          );
-                        }
-                      } else {
-                        // Student logic
-                        final apiService = ApiService();
-                        final result = await apiService.loginStudent(email, password);
-
-                        if (!context.mounted) return;
-
-                        if (result['token'] != null) {
-                          // Approved student
-                          CurrentSession().user = AppUser.fromJson(userDoc);
-                          CurrentSession().token = result['token'];
                           Navigator.pushReplacementNamed(context, '/studentHome');
-                        } else if (result['status'] == 'pending') {
-                          Navigator.pushNamed(context, '/pending');
-                        } else if (result['status'] == 'rejected') {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Your application was rejected'), backgroundColor: Colors.red),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(result['message'] ?? 'Login failed'), backgroundColor: Colors.red),
-                          );
                         }
+                      } else if (result['status'] == 'pending') {
+                        Navigator.pushNamed(context, '/pending');
+                      } else if (result['status'] == 'rejected') {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Your application was rejected'), backgroundColor: Colors.red),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(result['message'] ?? 'Login failed'), backgroundColor: Colors.red),
+                        );
                       }
                     } catch (e) {
                       if (!context.mounted) return;

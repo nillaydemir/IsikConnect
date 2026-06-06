@@ -616,55 +616,26 @@ class _MyMentorTabState extends State<_MyMentorTab> {
     });
 
     try {
-      final response = await Supabase.instance.client
-          .from('students')
-          .select('matched_mentor_id, mentors(*, users(*))')
-          .eq('id', _currentStudent!.id)
-          .maybeSingle();
+      final response = await MatchingService().fetchActiveMatch();
 
-      if (response != null &&
-          response['matched_mentor_id'] != null &&
-          response['mentors'] != null) {
-        final mentorData = response['mentors'];
-        final userData = mentorData['users'];
-        final mentorId = mentorData['id'];
-
-        // Fetch ratings separately to bypass missing FK relationship
-        double avgRating = 0.0;
-        int reviewCount = 0;
-        try {
-          final reviewsRes = await Supabase.instance.client
-              .from('reviews')
-              .select('rating')
-              .eq('mentor_id', mentorId);
-
-          if (reviewsRes.isNotEmpty) {
-            final sum = reviewsRes.fold<num>(
-              0,
-              (prev, r) => prev + (r['rating'] as num),
-            );
-            avgRating = sum / reviewsRes.length;
-            reviewCount = reviewsRes.length;
-          }
-        } catch (e) {
-          debugPrint('Warning: Could not fetch reviews for mentor: $e');
-        }
+      if (response != null && response['mentor'] != null) {
+        final mentorData = response['mentor'] as Map<String, dynamic>;
 
         _matchedMentor = Mentor(
-          id: mentorId,
-          name: '${userData['first_name']} ${userData['last_name']}',
-          email: userData['email'],
-          profileImageUrl: userData['profile_image_url'],
-          department: userData['department'] ?? '',
+          id: mentorData['id'],
+          name: '${mentorData['first_name']} ${mentorData['last_name']}',
+          email: mentorData['email'] ?? '',
+          profileImageUrl: mentorData['profile_image_url'],
+          department: mentorData['department'] ?? '',
           graduationYear: mentorData['graduation_year']?.toString() ?? '',
-          skills: List<String>.from(mentorData['interests'] ?? []),
+          skills: List<String>.from(mentorData['skills'] ?? []),
           company: mentorData['company'],
           jobTitle: mentorData['job_title'],
-          maxCapacity: mentorData['max_students'] ?? 1,
-          currentStudentsCount: mentorData['current_student_count'] ?? 0,
-          availableDays: List<String>.from(mentorData['available_days'] ?? []),
-          avgRating: avgRating,
-          reviewCount: reviewCount,
+          maxCapacity: mentorData['maxCapacity'] ?? 1,
+          currentStudentsCount: mentorData['currentStudentsCount'] ?? 0,
+          availableDays: List<String>.from(mentorData['availableDays'] ?? []),
+          avgRating: (mentorData['avgRating'] as num?)?.toDouble() ?? 0.0,
+          reviewCount: mentorData['reviewCount'] ?? 0,
           badge: mentorData['badge']?.toString() ?? '🌱 New Mentor',
         );
       }
