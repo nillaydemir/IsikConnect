@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/meeting_service.dart';
 import '../../../core/services/current_session.dart';
 import 'create_meeting_screen.dart';
@@ -41,16 +40,9 @@ class MeetingsScreenState extends State<MeetingsScreen> {
 
   Future<void> _checkRole() async {
     if (currentUserId.isEmpty) return;
-    try {
-      final userRes = await Supabase.instance.client
-          .from('users')
-          .select('role')
-          .eq('id', currentUserId)
-          .single();
-      setState(() {
-        _isMentor = userRes['role'] == 'mentor';
-      });
-    } catch (_) {}
+    setState(() {
+      _isMentor = CurrentSession().user?.role == 'mentor';
+    });
   }
 
   @override
@@ -864,10 +856,7 @@ class _RegisteredStudentsDialogState extends State<_RegisteredStudentsDialog> {
 
   Future<void> _fetchRegisteredStudents() async {
     try {
-      final response = await Supabase.instance.client
-          .from('workshop_participants')
-          .select('student_id, users(first_name, last_name, email)')
-          .eq('meeting_id', widget.meetingId);
+      final response = await MeetingService().getWorkshopParticipants(widget.meetingId);
 
       if (mounted) {
         setState(() {

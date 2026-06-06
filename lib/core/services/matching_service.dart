@@ -73,6 +73,16 @@ class MatchingService {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchActiveMatch() async {
+    try {
+      final apiService = ApiService();
+      return await apiService.fetchActiveMatch();
+    } catch (e) {
+      debugPrint('Error fetching active match via backend: $e');
+      return null;
+    }
+  }
+
   /// THE BLACK BOX ALGORITHM (DO NOT MODIFY LOGIC)
   Map<Student, Mentor?> assignMentors(List<Student> students, List<Mentor> mentors) {
     Map<Student, Mentor?> assignments = {};

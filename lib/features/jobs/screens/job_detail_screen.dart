@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/job_posting_model.dart';
@@ -9,6 +8,7 @@ import '../../../core/services/current_session.dart';
 import 'create_edit_job_screen.dart';
 import '../../../core/models/app_user_model.dart';
 import '../../shared/screens/chat_screen.dart';
+import '../../../core/services/api_service.dart';
 
 class JobDetailScreen extends StatefulWidget {
   final JobPosting job;
@@ -39,11 +39,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Future<void> _messageUser(String userId, String userName) async {
     try {
-      final userDoc = await Supabase.instance.client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .single();
+      final userDoc = await ApiService().fetchUserById(userId);
       
       final targetUser = AppUser.fromJson(userDoc);
       

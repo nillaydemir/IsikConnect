@@ -295,6 +295,44 @@ const joinMeeting = async (req, res) => {
   }
 };
 
+// Fetch registered students in workshop
+const getWorkshopParticipants = async (req, res) => {
+  const { meetingId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const { data: meeting, error: meetingError } = await supabase
+      .from('meetings')
+      .select('id, mentor_id, is_deleted')
+      .eq('id', meetingId)
+      .single();
+
+    if (meetingError || !meeting) {
+      return res.status(404).json({ message: 'Meeting not found.' });
+    }
+
+    if (meeting.is_deleted) {
+      return res.status(400).json({ message: 'Meeting has been deleted.' });
+    }
+
+    if (meeting.mentor_id !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied: You are not the mentor of this workshop.' });
+    }
+
+    const { data: participants, error: regError } = await supabase
+      .from('workshop_participants')
+      .select('student_id, users:student_id(first_name, last_name, email)')
+      .eq('meeting_id', meetingId);
+
+    if (regError) throw regError;
+
+    res.status(200).json(participants || []);
+  } catch (error) {
+    console.error('Get workshop participants error:', error);
+    res.status(500).json({ message: 'Failed to retrieve workshop participants.', error: error.message });
+  }
+};
+
 module.exports = {
   createMeeting,
   getMentees,
@@ -304,5 +342,7 @@ module.exports = {
   deleteMeeting,
   updateMeeting,
   getMeetingDetails,
-  joinMeeting
+  joinMeeting,
+  getWorkshopParticipants
 };
+

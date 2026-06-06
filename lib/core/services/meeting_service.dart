@@ -140,4 +140,10 @@ class MeetingService {
       return null;
     }
   }
+
+  Future<List<Map<String, dynamic>>> getWorkshopParticipants(String meetingId) async {
+    final user = CurrentSession().user;
+    if (user == null) return [];
+    return await ApiService().fetchWorkshopParticipants(meetingId);
+  }
 }

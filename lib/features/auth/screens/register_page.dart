@@ -4,7 +4,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/services/api_service.dart';
 
@@ -81,9 +80,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _fetchDepartmentsAndInterests() async {
     try {
-      final response = await Supabase.instance.client
-          .from('departments')
-          .select('name, interests(name)');
+      final response = await ApiService().fetchDepartments();
 
       final Map<String, List<String>> fetchedData = {};
 

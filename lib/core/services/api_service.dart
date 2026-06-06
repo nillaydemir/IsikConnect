@@ -131,6 +131,15 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
+  Future<Map<String, dynamic>> loginUnified(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login-unified'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    return jsonDecode(response.body);
+  }
+
   Future<List<dynamic>> getPendingApplications() async {
     try {
       final response = await http.get(
@@ -983,5 +992,105 @@ class ApiService {
     if (response.statusCode != 200) {
       throw 'Failed to send admin message: ${response.statusCode} - ${response.body}';
     }
+  }
+
+  // Messaging operations
+  Future<List<dynamic>> fetchConversations() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/messages/conversations'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode != 200) {
+      throw 'Failed to fetch conversations: ${response.statusCode} - ${response.body}';
+    }
+    return jsonDecode(response.body) as List<dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchChat(String targetUserId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/messages/chat/$targetUserId'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode != 200) {
+      throw 'Failed to fetch chat messages: ${response.statusCode} - ${response.body}';
+    }
+    final List<dynamic> data = jsonDecode(response.body);
+    return data.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<Map<String, dynamic>> sendMessage(String receiverId, String content) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/messages/send'),
+      headers: _authHeaders,
+      body: jsonEncode({
+        'receiver_id': receiverId,
+        'content': content,
+      }),
+    );
+    if (response.statusCode != 201) {
+      throw 'Failed to send message: ${response.statusCode} - ${response.body}';
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<void> markMessagesAsRead(String targetUserId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/messages/mark-read'),
+      headers: _authHeaders,
+      body: jsonEncode({
+        'senderId': targetUserId,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw 'Failed to mark messages as read: ${response.statusCode} - ${response.body}';
+    }
+  }
+
+  Future<void> deleteChat(String targetUserId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/messages/delete-chat'),
+      headers: _authHeaders,
+      body: jsonEncode({
+        'targetUserId': targetUserId,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw 'Failed to delete chat: ${response.statusCode} - ${response.body}';
+    }
+  }
+
+  Future<Map<String, dynamic>> checkConnectionStatus(String targetUserId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/messages/connection-status/$targetUserId'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode != 200) {
+      throw 'Failed to check connection status: ${response.statusCode} - ${response.body}';
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWorkshopParticipants(String meetingId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/meetings/$meetingId/participants'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode != 200) {
+      throw 'Failed to fetch workshop participants: ${response.statusCode} - ${response.body}';
+    }
+    final List<dynamic> data = jsonDecode(response.body);
+    return data.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<Map<String, dynamic>?> fetchActiveMatch() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/matching/active'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode != 200) {
+      throw 'Failed to fetch active match: ${response.statusCode} - ${response.body}';
+    }
+    final Map<String, dynamic> data = jsonDecode(response.body);
+    return data;
   }
 }

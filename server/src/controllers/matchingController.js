@@ -488,9 +488,92 @@ const getMentorCancelledMatchCount = async (req, res) => {
   }
 };
 
+// Controller function: Get active match for student
+const getActiveMatch = async (req, res) => {
+  const studentId = req.user.id;
+
+  try {
+    const { data: activeMatch, error: matchError } = await supabase
+      .from('matches')
+      .select('mentor_id')
+      .eq('student_id', studentId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (matchError) throw matchError;
+    if (!activeMatch || !activeMatch.mentor_id) {
+      return res.status(200).json({ mentor: null });
+    }
+
+    const mentorId = activeMatch.mentor_id;
+
+    const { data: mentorUser, error: mentorError } = await supabase
+      .from('users')
+      .select('*, mentors(*)')
+      .eq('id', mentorId)
+      .single();
+
+    if (mentorError || !mentorUser) {
+      return res.status(200).json({ mentor: null });
+    }
+
+    let mentorProfile = mentorUser.mentors;
+    if (Array.isArray(mentorProfile)) {
+      mentorProfile = mentorProfile[0];
+    }
+
+    let avgRating = 0.0;
+    let reviewCount = 0;
+    
+    const { data: reviewsRes, error: reviewsError } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('mentor_id', mentorId);
+
+    if (!reviewsError && reviewsRes && reviewsRes.length > 0) {
+      const sum = reviewsRes.reduce((acc, r) => acc + (r.rating || 0), 0);
+      avgRating = sum / reviewsRes.length;
+      reviewCount = reviewsRes.length;
+    }
+
+    const maxCapacity = mentorProfile ? (mentorProfile.max_students || 1) : 1;
+    const currentCount = mentorProfile ? (mentorProfile.current_student_count || 0) : 0;
+
+    const mentorPayload = {
+      id: mentorUser.id,
+      first_name: mentorUser.first_name,
+      last_name: mentorUser.last_name,
+      email: mentorUser.email,
+      profile_image_url: mentorUser.profile_image_url,
+      department: mentorUser.department || '',
+      graduation_year: mentorProfile ? mentorProfile.graduation_year : '',
+      skills: mentorProfile ? (mentorProfile.interests || []) : [],
+      company: mentorProfile ? mentorProfile.company : null,
+      job_title: mentorProfile ? mentorProfile.job_title : null,
+      maxCapacity: maxCapacity,
+      currentStudentsCount: currentCount,
+      availableDays: mentorProfile ? (mentorProfile.available_days || []) : [],
+      avgRating: avgRating,
+      reviewCount: reviewCount,
+      badge: mentorProfile ? (mentorProfile.badge || '🌱 New Mentor') : '🌱 New Mentor'
+    };
+
+    res.status(200).json({
+      mentor: mentorPayload,
+      avgRating,
+      reviewCount
+    });
+  } catch (error) {
+    console.error('Get active match error:', error);
+    res.status(500).json({ message: 'Failed to retrieve active match status.', error: error.message });
+  }
+};
+
 module.exports = {
   runMatching,
   cancelMatch,
   getStudentCancelledMatchCount,
-  getMentorCancelledMatchCount
+  getMentorCancelledMatchCount,
+  getActiveMatch
 };
+
