@@ -3,22 +3,77 @@ const supabase = require('../config/supabase');
 
 const deleteAccount = async (req, res) => {
   const { userId } = req.params;
+  const { password } = req.body;
 
   // Authorization check
   if (req.user.id !== userId) {
     return res.status(403).json({ error: 'Forbidden: You can only delete your own account.' });
   }
 
+  // Password check
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required to delete account.' });
+  }
+
   try {
-    // 0. Fetch user role
-    const { data: userData, error: fetchUserError } = await supabase
+    // 0. Verify password before deletion
+    const { data: user, error: userFetchError } = await supabase
       .from('users')
-      .select('role')
+      .select('role, password, email')
       .eq('id', userId)
       .maybeSingle();
 
-    if (fetchUserError) throw fetchUserError;
-    const userRole = userData?.role;
+    if (userFetchError || !user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let isPasswordMatch = false;
+
+    // Check password - similar logic to changePassword
+    if (user.role === 'admin') {
+      if (user.password) {
+        if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+          try {
+            isPasswordMatch = await bcrypt.compare(password, user.password);
+          } catch (e) {
+            console.warn('Bcrypt compare error for admin:', e.message);
+          }
+        } else {
+          isPasswordMatch = (password === user.password);
+        }
+      }
+    } else {
+      if (user.password) {
+        try {
+          isPasswordMatch = await bcrypt.compare(password, user.password);
+        } catch (e) {
+          console.warn('Bcrypt compare error:', e.message);
+        }
+      }
+
+      if (!isPasswordMatch) {
+        // Fallback to Supabase Auth verification
+        try {
+          const authClient = supabase.getAdminClient();
+          const { data: authData, error: authError } = await authClient.auth.signInWithPassword({
+            email: user.email,
+            password: password
+          });
+          if (!authError && authData.user) {
+            isPasswordMatch = true;
+          }
+        } catch (e) {
+          console.warn('Supabase auth verification error:', e.message);
+        }
+      }
+    }
+
+    if (!isPasswordMatch) {
+      return res.status(401).json({ error: 'Invalid password.' });
+    }
+
+    // 0. Fetch user role
+    const userRole = user.role;
 
     // 1. Find active matches for this user
     const { data: activeMatches, error: matchError } = await supabase

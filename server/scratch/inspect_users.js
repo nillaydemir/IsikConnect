@@ -1,4 +1,4 @@
-const supabase = require('/Users/nilaydemir/IsikConnect/server/src/config/supabase').getAdminClient();
+const supabase = require('../src/config/supabase').getAdminClient();
 
 async function inspectUsers() {
   try {
