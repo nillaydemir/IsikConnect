@@ -17,7 +17,8 @@ class ForumService {
 
   // --- Fetch Posts ---
   Stream<List<ForumPost>> getPostsStream(String? category) {
-    final StreamController<List<ForumPost>> controller = StreamController<List<ForumPost>>.broadcast();
+    final StreamController<List<ForumPost>> controller =
+        StreamController<List<ForumPost>>.broadcast();
 
     Future<void> refresh() async {
       try {
@@ -34,18 +35,27 @@ class ForumService {
     refresh();
 
     // Listen to changes in posts, likes, and comments to keep the feed perfectly synced
-    final postsSub = _supabase.from('forum_posts').stream(primaryKey: ['id']).listen(
-      (_) => refresh(),
-      onError: (e) => debugPrint('Realtime sub error (forum_posts): $e'),
-    );
-    final likesSub = _supabase.from('forum_likes').stream(primaryKey: ['post_id', 'user_id']).listen(
-      (_) => refresh(),
-      onError: (e) => debugPrint('Realtime sub error (forum_likes): $e'),
-    );
-    final commentsSub = _supabase.from('forum_comments').stream(primaryKey: ['id']).listen(
-      (_) => refresh(),
-      onError: (e) => debugPrint('Realtime sub error (forum_comments): $e'),
-    );
+    final postsSub = _supabase
+        .from('forum_posts')
+        .stream(primaryKey: ['id'])
+        .listen(
+          (_) => refresh(),
+          onError: (e) => debugPrint('Realtime sub error (forum_posts): $e'),
+        );
+    final likesSub = _supabase
+        .from('forum_likes')
+        .stream(primaryKey: ['post_id', 'user_id'])
+        .listen(
+          (_) => refresh(),
+          onError: (e) => debugPrint('Realtime sub error (forum_likes): $e'),
+        );
+    final commentsSub = _supabase
+        .from('forum_comments')
+        .stream(primaryKey: ['id'])
+        .listen(
+          (_) => refresh(),
+          onError: (e) => debugPrint('Realtime sub error (forum_comments): $e'),
+        );
 
     controller.onCancel = () {
       postsSub.cancel();
@@ -70,18 +80,16 @@ class ForumService {
 
   // --- Get Unread Posts Stream ---
   Stream<List<ForumPost>> getUnreadPostsStream() {
-    final StreamController<List<ForumPost>> controller = StreamController<List<ForumPost>>.broadcast();
+    final StreamController<List<ForumPost>> controller =
+        StreamController<List<ForumPost>>.broadcast();
 
     Future<void> updatePosts() async {
       try {
         final allPosts = await fetchPosts(null);
         final readPostIds = (await ApiService().fetchReadPostIds()).toSet();
-        final userCreatedAt = CurrentSession().user?.createdAt;
-        final unreadPosts = allPosts.where((post) {
-          final isRead = readPostIds.contains(post.id);
-          final isAfterRegistration = userCreatedAt == null || post.createdAt.isAfter(userCreatedAt);
-          return !isRead && isAfterRegistration;
-        }).toList();
+        final unreadPosts = allPosts
+            .where((post) => !readPostIds.contains(post.id))
+            .toList();
         if (!controller.isClosed) {
           controller.add(unreadPosts);
         }
@@ -109,7 +117,8 @@ class ForumService {
         .eq('user_id', _currentUserId)
         .listen(
           (_) => updatePosts(),
-          onError: (e) => debugPrint('Realtime sub error (forum_read_posts): $e'),
+          onError: (e) =>
+              debugPrint('Realtime sub error (forum_read_posts): $e'),
         );
 
     controller.onCancel = () {
@@ -124,17 +133,14 @@ class ForumService {
   // --- Get Unread Count Stream ---
   Stream<int> getUnreadCountStream() {
     final StreamController<int> controller = StreamController<int>.broadcast();
-    
+
     Future<void> updateCount() async {
       try {
         final allPosts = await fetchPosts(null);
         final readPostIds = (await ApiService().fetchReadPostIds()).toSet();
-        final userCreatedAt = CurrentSession().user?.createdAt;
-        final unreadCount = allPosts.where((post) {
-          final isRead = readPostIds.contains(post.id);
-          final isAfterRegistration = userCreatedAt == null || post.createdAt.isAfter(userCreatedAt);
-          return !isRead && isAfterRegistration;
-        }).length;
+        final unreadCount = allPosts
+            .where((post) => !readPostIds.contains(post.id))
+            .length;
         if (!controller.isClosed) {
           controller.add(unreadCount);
         }
@@ -162,7 +168,8 @@ class ForumService {
         .eq('user_id', _currentUserId)
         .listen(
           (_) => updateCount(),
-          onError: (e) => debugPrint('Realtime sub error (forum_read_posts): $e'),
+          onError: (e) =>
+              debugPrint('Realtime sub error (forum_read_posts): $e'),
         );
 
     controller.onCancel = () {
@@ -177,8 +184,12 @@ class ForumService {
   // Fallback Future method since Stream with deep joins in Supabase Flutter can sometimes be limited
   Future<List<ForumPost>> fetchPosts(String? category) async {
     try {
-      final List<Map<String, dynamic>> response = await ApiService().fetchPosts(category);
-      return response.map((json) => ForumPost.fromJson(json, _currentUserId)).toList();
+      final List<Map<String, dynamic>> response = await ApiService().fetchPosts(
+        category,
+      );
+      return response
+          .map((json) => ForumPost.fromJson(json, _currentUserId))
+          .toList();
     } catch (e) {
       debugPrint('Error fetching posts: $e');
       rethrow;
@@ -188,7 +199,8 @@ class ForumService {
   // --- Fetch Comments ---
   Future<List<ForumComment>> fetchComments(String postId) async {
     try {
-      final List<Map<String, dynamic>> response = await ApiService().fetchComments(postId);
+      final List<Map<String, dynamic>> response = await ApiService()
+          .fetchComments(postId);
       return response.map((json) => ForumComment.fromJson(json)).toList();
     } catch (e) {
       debugPrint('Error fetching comments: $e');

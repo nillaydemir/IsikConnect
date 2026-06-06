@@ -85,7 +85,7 @@ const updateJobPosting = async (req, res) => {
       return res.status(404).json({ message: 'Job posting not found.' });
     }
 
-    if (posting.mentor_id !== mentorId) {
+    if (posting.mentor_id !== mentorId && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden: You can only update your own postings.' });
     }
 
@@ -127,7 +127,7 @@ const deleteJobPosting = async (req, res) => {
       return res.status(404).json({ message: 'Job posting not found.' });
     }
 
-    if (posting.mentor_id !== mentorId) {
+    if (posting.mentor_id !== mentorId && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden: You can only delete your own postings.' });
     }
 

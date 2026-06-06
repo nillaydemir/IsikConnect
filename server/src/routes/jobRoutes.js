@@ -23,8 +23,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.get('/', protect, fetchJobPostings);
 router.get('/my-postings', protect, restrictTo('mentor'), fetchMyJobPostings);
 router.post('/', protect, restrictTo('mentor'), createJobPosting);
-router.put('/:id', protect, restrictTo('mentor'), updateJobPosting);
-router.delete('/:id', protect, restrictTo('mentor'), deleteJobPosting);
+router.put('/:id', protect, restrictTo('mentor', 'admin'), updateJobPosting);
+router.delete('/:id', protect, restrictTo('mentor', 'admin'), deleteJobPosting);
 
 router.post('/upload-cv', protect, restrictTo('student'), upload.single('cv'), uploadCV);
 router.post('/:jobId/apply', protect, restrictTo('student'), applyForJob);
