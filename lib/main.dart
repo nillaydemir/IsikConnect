@@ -33,16 +33,24 @@ class IsikConnectApp extends StatefulWidget {
 
 class _IsikConnectAppState extends State<IsikConnectApp> {
   StreamSubscription<AuthState>? _authSubscription;
+  bool _shouldRedirectToResetPassword = false;
 
   @override
   void initState() {
     super.initState();
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final AuthChangeEvent event = data.event;
+      debugPrint('Supabase Auth Event: $event');
       if (event == AuthChangeEvent.passwordRecovery) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        debugPrint('Supabase Auth Event: passwordRecovery triggered');
+        if (navigatorKey.currentState != null) {
           navigatorKey.currentState?.pushNamed('/reset-password');
-        });
+        } else {
+          debugPrint('Navigator state is null, deferring routing to reset-password');
+          setState(() {
+            _shouldRedirectToResetPassword = true;
+          });
+        }
       }
     });
   }
@@ -66,6 +74,16 @@ class _IsikConnectAppState extends State<IsikConnectApp> {
         theme: AppTheme.lightTheme,
         initialRoute: AppRoutes.initialRoute,
         routes: AppRoutes.routes,
+        builder: (context, child) {
+          if (_shouldRedirectToResetPassword) {
+            _shouldRedirectToResetPassword = false;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              debugPrint('Executing deferred routing to reset-password');
+              navigatorKey.currentState?.pushNamed('/reset-password');
+            });
+          }
+          return child!;
+        },
       ),
     );
   }
