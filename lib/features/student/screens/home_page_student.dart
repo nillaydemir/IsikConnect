@@ -1082,15 +1082,6 @@ class _MyMentorTabState extends State<_MyMentorTab> {
                                       ),
                                     ),
                                   ],
-                                )
-                              else
-                                Text(
-                                  'New Mentor',
-                                  style: TextStyle(
-                                    color: Colors.blue.shade600,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
                                 ),
                             ],
                           ),

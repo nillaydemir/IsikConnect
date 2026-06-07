@@ -465,9 +465,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               final meetingIdStr = meeting['id'].toString();
                               final String currentUserId = CurrentSession().user?.id ?? '';
                               
-                              bool isHost = meeting['mentor_id'] == currentUserId;
+                                                            bool isHost = meeting['mentor_id'] == currentUserId;
                               bool isRegistered = meeting['is_registered'] == true;
                               bool isJoined = isHost || isRegistered;
+                              final isMentor = CurrentSession().user?.role == 'mentor';
 
                               final meetingDate = meeting['meeting_date'] != null
                                   ? DateTime.parse(meeting['meeting_date']).toLocal()
@@ -574,131 +575,132 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 20),
-                                      
-                                      if (isPast)
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton(
-                                            onPressed: null,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.grey.shade200,
-                                              disabledBackgroundColor: Colors.grey.shade200,
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                      if (!(isMentor && !isHost)) ...[
+                                        const SizedBox(height: 20),
+                                        if (isPast)
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton(
+                                              onPressed: null,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.grey.shade200,
+                                                disabledBackgroundColor: Colors.grey.shade200,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                              ),
+                                              child: const Text(
+                                                'Time Limit',
+                                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                                              ),
                                             ),
-                                            child: const Text(
-                                              'Time Limit',
-                                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                                          )
+                                        else if (!isHost && !isRegistered)
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton(
+                                              onPressed: _processingWorkshopRegistration
+                                                  ? null
+                                                  : () => _handleWorkshopRegistration(meetingIdStr, true),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.orange.shade600,
+                                                foregroundColor: Colors.white,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                              ),
+                                              child: _processingWorkshopRegistration
+                                                  ? const SizedBox(
+                                                      height: 18,
+                                                      width: 18,
+                                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                                    )
+                                                  : const Text('Register for Workshop', style: TextStyle(fontWeight: FontWeight.bold)),
                                             ),
-                                          ),
-                                        )
-                                      else if (!isHost && !isRegistered)
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: ElevatedButton(
-                                            onPressed: _processingWorkshopRegistration
-                                                ? null
-                                                : () => _handleWorkshopRegistration(meetingIdStr, true),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.orange.shade600,
-                                              foregroundColor: Colors.white,
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                              padding: const EdgeInsets.symmetric(vertical: 12),
-                                            ),
-                                            child: _processingWorkshopRegistration
-                                                ? const SizedBox(
-                                                    height: 18,
-                                                    width: 18,
-                                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                                  )
-                                                : const Text('Register for Workshop', style: TextStyle(fontWeight: FontWeight.bold)),
-                                          ),
-                                        )
-                                      else
-                                        Column(
-                                          children: [
-                                            SizedBox(
-                                              width: double.infinity,
-                                              child: ElevatedButton(
-                                                onPressed: () {
-                                                  if (!isJoined) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      const SnackBar(content: Text('You are not a participant in this workshop.')),
-                                                    );
-                                                    return;
-                                                  }
+                                          )
+                                        else
+                                          Column(
+                                            children: [
+                                              SizedBox(
+                                                width: double.infinity,
+                                                child: ElevatedButton(
+                                                  onPressed: () {
+                                                    if (!isJoined) {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(content: Text('You are not a participant in this workshop.')),
+                                                      );
+                                                      return;
+                                                    }
 
-                                                  if (isTooEarly) {
-                                                    final validTime = meetingDate.subtract(const Duration(minutes: 10));
-                                                    final timeStr = DateFormat('h:mm a').format(validTime);
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text('You can join the event at $timeStr.'),
-                                                        backgroundColor: Colors.orange,
+                                                    if (isTooEarly) {
+                                                      final validTime = meetingDate.subtract(const Duration(minutes: 10));
+                                                      final timeStr = DateFormat('h:mm a').format(validTime);
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text('You can join the event at $timeStr.'),
+                                                          backgroundColor: Colors.orange,
+                                                        ),
+                                                      );
+                                                      return;
+                                                    }
+
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) => VideoCallScreen(channelName: meetingIdStr),
                                                       ),
                                                     );
-                                                    return;
-                                                  }
-
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (context) => VideoCallScreen(channelName: meetingIdStr),
-                                                    ),
-                                                  );
-                                                },
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: isTooEarly ? Colors.orange.shade100 : primaryColor,
-                                                  foregroundColor: isTooEarly ? Colors.orange.shade800 : Colors.white,
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                                  },
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: isTooEarly ? Colors.orange.shade100 : primaryColor,
+                                                    foregroundColor: isTooEarly ? Colors.orange.shade800 : Colors.white,
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                                  ),
+                                                  child: isTooEarly
+                                                      ? Row(
+                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                          children: [
+                                                            const Icon(Icons.lock_clock, size: 18),
+                                                            const SizedBox(width: 8),
+                                                            Text(
+                                                              'Opens at ${DateFormat('h:mm a').format(meetingDate.subtract(const Duration(minutes: 10)))}',
+                                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                                            ),
+                                                          ],
+                                                        )
+                                                      : const Text('Join Meeting', style: TextStyle(fontWeight: FontWeight.bold)),
                                                 ),
-                                                child: isTooEarly
-                                                    ? Row(
-                                                        mainAxisAlignment: MainAxisAlignment.center,
-                                                        children: [
-                                                          const Icon(Icons.lock_clock, size: 18),
-                                                          const SizedBox(width: 8),
-                                                          Text(
-                                                            'Opens at ${DateFormat('h:mm a').format(meetingDate.subtract(const Duration(minutes: 10)))}',
-                                                            style: const TextStyle(fontWeight: FontWeight.bold),
-                                                          ),
-                                                        ],
-                                                      )
-                                                    : const Text('Join Meeting', style: TextStyle(fontWeight: FontWeight.bold)),
                                               ),
-                                            ),
-                                            if (isRegistered && !isHost) ...[
-                                              const SizedBox(height: 8),
-                                              TextButton(
-                                                onPressed: _processingWorkshopRegistration
-                                                    ? null
-                                                    : () async {
-                                                        final confirm = await showDialog<bool>(
-                                                          context: context,
-                                                          builder: (context) => AlertDialog(
-                                                            title: const Text('Cancel Registration'),
-                                                            content: const Text('Are you sure you want to cancel your registration for this workshop?'),
-                                                            actions: [
-                                                              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-                                                              TextButton(
-                                                                onPressed: () => Navigator.pop(context, true),
-                                                                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                                                                child: const Text('Cancel Registration'),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        );
-                                                        if (confirm == true) {
-                                                          _handleWorkshopRegistration(meetingIdStr, false);
-                                                        }
-                                                      },
-                                                child: const Text('Cancel Registration', style: TextStyle(color: Colors.redAccent)),
-                                              ),
+                                              if (isRegistered && !isHost) ...[
+                                                const SizedBox(height: 8),
+                                                TextButton(
+                                                  onPressed: _processingWorkshopRegistration
+                                                      ? null
+                                                      : () async {
+                                                          final confirm = await showDialog<bool>(
+                                                            context: context,
+                                                            builder: (context) => AlertDialog(
+                                                              title: const Text('Cancel Registration'),
+                                                              content: const Text('Are you sure you want to cancel your registration for this workshop?'),
+                                                              actions: [
+                                                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+                                                                TextButton(
+                                                                  onPressed: () => Navigator.pop(context, true),
+                                                                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                                                  child: const Text('Cancel Registration'),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          );
+                                                          if (confirm == true) {
+                                                            _handleWorkshopRegistration(meetingIdStr, false);
+                                                          }
+                                                        },
+                                                  child: const Text('Cancel Registration', style: TextStyle(color: Colors.redAccent)),
+                                                ),
+                                              ],
                                             ],
-                                          ],
-                                        ),
+                                          ),
+                                      ],
                                     ],
                                   ),
                                 ),

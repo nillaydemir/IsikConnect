@@ -596,224 +596,226 @@ class _MeetingListState extends State<_MeetingList> {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        if (isJoinBlocked)
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey.shade200,
-                                foregroundColor: Colors.grey.shade500,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                              child: const Text(
-                                'Expired',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          )
-                        else if (isWorkshop && !isHost && !isRegistered)
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed:
-                                  _processingMeetings.contains(meetingIdStr)
-                                  ? null
-                                  : () => _handleRegister(meetingIdStr),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange.shade600,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                              child: _processingMeetings.contains(meetingIdStr)
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Register for Workshop',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                          )
-                        else
-                          Column(
-                            children: [
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    if (!isJoined) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'You are not a participant in this meeting.',
-                                          ),
-                                        ),
-                                      );
-                                      return;
-                                    }
-
-                                    if (isTooEarly) {
-                                      final validTime = meetingDate.subtract(
-                                        const Duration(minutes: 10),
-                                      );
-                                      final timeStr =
-                                          '${validTime.hour.toString().padLeft(2, '0')}:${validTime.minute.toString().padLeft(2, '0')}';
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'You can join the event starting at $timeStr.',
-                                          ),
-                                          backgroundColor: Colors.orange,
-                                        ),
-                                      );
-                                      return;
-                                    }
-
-                                    MeetingService.markMeetingAsJoined(
-                                      meetingIdStr,
-                                    );
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => VideoCallScreen(
-                                          channelName: meetingIdStr,
-                                        ),
-                                      ),
-                                    ).then((_) {
-                                      widget.onRefresh();
-                                    });
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: isTooEarly
-                                        ? Colors.orange.shade100
-                                        : primaryColor,
-                                    foregroundColor: isTooEarly
-                                        ? Colors.orange.shade800
-                                        : Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
+                        if (!(isWorkshop && CurrentSession().user?.role == 'mentor' && !isHost)) ...[
+                          const SizedBox(height: 16),
+                          if (isJoinBlocked)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey.shade200,
+                                  foregroundColor: Colors.grey.shade500,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: isTooEarly
-                                      ? Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            const Icon(
-                                              Icons.lock_clock,
-                                              size: 18,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              'Opens at ${meetingDate.subtract(const Duration(minutes: 10)).hour.toString().padLeft(2, '0')}:${meetingDate.subtract(const Duration(minutes: 10)).minute.toString().padLeft(2, '0')}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : const Text(
-                                          'Join Meeting',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Expired',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ),
-                              if (isWorkshop && isRegistered && !isHost) ...[
-                                const SizedBox(height: 8),
-                                TextButton(
-                                  onPressed:
-                                      _processingMeetings.contains(meetingIdStr)
-                                      ? null
-                                      : () async {
-                                          final confirm = await showDialog<bool>(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              title: const Text(
-                                                'Cancel Registration',
-                                              ),
-                                              content: const Text(
-                                                'Are you sure you want to cancel your registration for this workshop?',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(
-                                                        context,
-                                                        false,
-                                                      ),
-                                                  child: const Text('No'),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(
-                                                        context,
-                                                        true,
-                                                      ),
-                                                  style: TextButton.styleFrom(
-                                                    foregroundColor: Colors.red,
-                                                  ),
-                                                  child: const Text(
-                                                    'Cancel Registration',
-                                                  ),
-                                                ),
-                                              ],
+                            )
+                          else if (isWorkshop && !isHost && !isRegistered)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed:
+                                    _processingMeetings.contains(meetingIdStr)
+                                    ? null
+                                    : () => _handleRegister(meetingIdStr),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange.shade600,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: _processingMeetings.contains(meetingIdStr)
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Register for Workshop',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            )
+                          else
+                            Column(
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      if (!isJoined) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'You are not a participant in this meeting.',
                                             ),
-                                          );
-
-                                          if (confirm == true) {
-                                            _handleUnregister(meetingIdStr);
-                                          }
-                                        },
-                                  child:
-                                      _processingMeetings.contains(meetingIdStr)
-                                      ? const SizedBox(
-                                          height: 16,
-                                          width: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
                                           ),
-                                        )
-                                      : const Text(
-                                          'Cancel Registration',
-                                          style: TextStyle(
-                                            color: Colors.redAccent,
+                                        );
+                                        return;
+                                      }
+
+                                      if (isTooEarly) {
+                                        final validTime = meetingDate.subtract(
+                                          const Duration(minutes: 10),
+                                        );
+                                        final timeStr =
+                                            '${validTime.hour.toString().padLeft(2, '0')}:${validTime.minute.toString().padLeft(2, '0')}';
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'You can join the event starting at $timeStr.',
+                                            ),
+                                            backgroundColor: Colors.orange,
+                                          ),
+                                        );
+                                        return;
+                                      }
+
+                                      MeetingService.markMeetingAsJoined(
+                                        meetingIdStr,
+                                      );
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => VideoCallScreen(
+                                            channelName: meetingIdStr,
                                           ),
                                         ),
+                                      ).then((_) {
+                                        widget.onRefresh();
+                                      });
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isTooEarly
+                                          ? Colors.orange.shade100
+                                          : primaryColor,
+                                      foregroundColor: isTooEarly
+                                          ? Colors.orange.shade800
+                                          : Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: isTooEarly
+                                        ? Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(
+                                                Icons.lock_clock,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Opens at ${meetingDate.subtract(const Duration(minutes: 10)).hour.toString().padLeft(2, '0')}:${meetingDate.subtract(const Duration(minutes: 10)).minute.toString().padLeft(2, '0')}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : const Text(
+                                            'Join Meeting',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
                                 ),
+                                if (isWorkshop && isRegistered && !isHost) ...[
+                                  const SizedBox(height: 8),
+                                  TextButton(
+                                    onPressed:
+                                        _processingMeetings.contains(meetingIdStr)
+                                        ? null
+                                        : () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text(
+                                                  'Cancel Registration',
+                                                ),
+                                                content: const Text(
+                                                  'Are you sure you want to cancel your registration for this workshop?',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                          context,
+                                                          false,
+                                                        ),
+                                                    child: const Text('No'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                          context,
+                                                          true,
+                                                        ),
+                                                    style: TextButton.styleFrom(
+                                                      foregroundColor: Colors.red,
+                                                    ),
+                                                    child: const Text(
+                                                      'Cancel Registration',
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+
+                                            if (confirm == true) {
+                                              _handleUnregister(meetingIdStr);
+                                            }
+                                          },
+                                    child:
+                                        _processingMeetings.contains(meetingIdStr)
+                                        ? const SizedBox(
+                                            height: 16,
+                                            width: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text(
+                                            'Cancel Registration',
+                                            style: TextStyle(
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
+                            ),
+                        ],
                       ],
                     ),
                   ),
