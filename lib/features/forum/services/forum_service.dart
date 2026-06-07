@@ -88,9 +88,10 @@ class ForumService {
         final allPosts = await fetchPosts(null);
         final readPostIds = (await ApiService().fetchReadPostIds()).toSet();
         final userCreatedAt = CurrentSession().user?.createdAt;
+        final currentId = _currentUserId;
 
         var unreadPosts = allPosts
-            .where((post) => !readPostIds.contains(post.id))
+            .where((post) => !readPostIds.contains(post.id) && post.authorId != currentId)
             .toList();
 
         if (userCreatedAt != null) {
@@ -148,9 +149,10 @@ class ForumService {
         final allPosts = await fetchPosts(null);
         final readPostIds = (await ApiService().fetchReadPostIds()).toSet();
         final userCreatedAt = CurrentSession().user?.createdAt;
+        final currentId = _currentUserId;
 
         var unreadPosts = allPosts
-            .where((post) => !readPostIds.contains(post.id))
+            .where((post) => !readPostIds.contains(post.id) && post.authorId != currentId)
             .toList();
 
         if (userCreatedAt != null) {

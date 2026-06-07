@@ -168,14 +168,14 @@ const fetchConversations = async (req, res) => {
         let label = null;
         if (user.role === 'admin') {
           label = 'Support';
-        } else if (jobUserIds.has(user.id)) {
-          label = 'Job';
         } else if (mentorshipUserIds.has(user.id)) {
           if (req.user.role === 'mentor') {
             label = 'Mentee';
           } else if (req.user.role === 'student') {
             label = 'Mentor';
           }
+        } else if (jobUserIds.has(user.id)) {
+          label = 'Job';
         } else {
           if (user.role === 'mentor') {
             label = 'Mentor';
